@@ -11,6 +11,7 @@ import { Toast } from '@/components/Toast';
 import { parseExifData, ExifData } from '@/lib/exif';
 import { evaluateLocationIntegrity, GeoComparisonResult } from '@/lib/geo';
 import { reverseGeocode } from '@/lib/wilayah';
+import piexif from 'piexifjs';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
@@ -20,6 +21,61 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
     </div>
   ),
 });
+
+function decimalToDmsRational(value: number): number[][] {
+  const absolute = Math.abs(value);
+  const degrees = Math.floor(absolute);
+  const minutesFloat = (absolute - degrees) * 60;
+  const minutes = Math.floor(minutesFloat);
+  const seconds = (minutesFloat - minutes) * 60;
+
+  return [
+    [degrees, 1],
+    [minutes, 1],
+    [Math.round(seconds * 100), 100],
+  ];
+}
+
+function embedGpsExif(jpegDataUrl: string, lat: number, lng: number): string {
+  try {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dateTimeOriginal = `${now.getFullYear()}:${pad(now.getMonth() + 1)}:${pad(
+      now.getDate()
+    )} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+    const exifObject = {
+      '0th': {
+        [piexif.ImageIFD.Make]: 'SIGAP',
+        [piexif.ImageIFD.Model]: 'SIGAP Web Camera',
+        [piexif.ImageIFD.Software]: 'SIGAP Infinitera',
+      },
+      Exif: {
+        [piexif.ExifIFD.DateTimeOriginal]: dateTimeOriginal,
+      },
+      GPS: {
+        [piexif.GPSIFD.GPSVersionID]: [2, 3, 0, 0],
+        [piexif.GPSIFD.GPSMapDatum]: 'WGS-84',
+        [piexif.GPSIFD.GPSLatitudeRef]: lat >= 0 ? 'N' : 'S',
+        [piexif.GPSIFD.GPSLatitude]: decimalToDmsRational(lat),
+        [piexif.GPSIFD.GPSLongitudeRef]: lng >= 0 ? 'E' : 'W',
+        [piexif.GPSIFD.GPSLongitude]: decimalToDmsRational(lng),
+      },
+    };
+
+    const exifBytes = piexif.dump(exifObject);
+    return piexif.insert(exifBytes, jpegDataUrl);
+  } catch (error) {
+    console.warn('Gagal menyisipkan GPS EXIF ke foto:', error);
+    return jpegDataUrl;
+  }
+}
+
+async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: 'image/jpeg' });
+}
 
 export default function LaporPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -139,25 +195,25 @@ export default function LaporPage() {
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, width, height);
 
-    setPhotoPreview(canvas.toDataURL('image/jpeg', 0.85));
+    let capturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85)
-    );
+    if (gpsLat !== null && gpsLng !== null) {
+      capturedDataUrl = embedGpsExif(capturedDataUrl, gpsLat, gpsLng);
+    }
 
-    if (blob) {
-      const captured = new File([blob], `sigap-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      setFile(captured);
+    setPhotoPreview(capturedDataUrl);
 
-      const parsed = await parseExifData(captured);
-      setExifInfo(parsed);
+    const captured = await dataUrlToFile(capturedDataUrl, `sigap-${Date.now()}.jpg`);
+    setFile(captured);
 
-      if (gpsLat !== null && gpsLng !== null && parsed.latitude && parsed.longitude) {
-        const check = evaluateLocationIntegrity(gpsLat, gpsLng, parsed.latitude, parsed.longitude);
-        setGeoIntegrity(check);
-      } else {
-        setGeoIntegrity(null);
-      }
+    const parsed = await parseExifData(captured);
+    setExifInfo(parsed);
+
+    if (gpsLat !== null && gpsLng !== null && parsed.latitude && parsed.longitude) {
+      const check = evaluateLocationIntegrity(gpsLat, gpsLng, parsed.latitude, parsed.longitude);
+      setGeoIntegrity(check);
+    } else {
+      setGeoIntegrity(null);
     }
 
     stopCamera();
@@ -394,7 +450,7 @@ export default function LaporPage() {
                     </div>
                   ) : (
                     <div className="text-[#272E3B] pt-1 font-medium">
-                      Kamera mobile tidak melampirkan GPS EXIF. Menggunakan GPS Browser utama.
+                      Koordinat GPS browser belum tersedia saat foto diambil. Izinkan lokasi lalu ambil ulang foto.
                     </div>
                   )}
                 </div>
