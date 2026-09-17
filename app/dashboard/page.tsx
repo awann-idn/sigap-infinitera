@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [reports, setReports] = useState<LaporanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<LaporanItem | null>(null);
+  const [petugas, setPetugas] = useState<{ nama?: string; institusi?: string } | null>(null);
 
   const [filterVerifikasi, setFilterVerifikasi] = useState<string>('ALL');
   const [filterPenanganan, setFilterPenanganan] = useState<string>('ALL');
@@ -43,6 +44,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchReports();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sigap_auth');
+      if (raw) setPetugas(JSON.parse(raw));
+    } catch {
+      setPetugas(null);
+    }
   }, []);
 
   const handleUpdateStatus = async (
@@ -87,7 +97,14 @@ export default function DashboardPage() {
             <div className="w-7 h-7 bg-[#0F141A] text-[#FFFFFF] flex items-center justify-center font-bold">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <span className="font-display font-bold text-[16px] text-[#0F141A]">PANEL PETUGAS</span>
+            <div className="flex flex-col">
+              <span className="font-display font-bold text-[16px] text-[#0F141A]">
+                {petugas?.nama || 'PANEL PETUGAS'}
+              </span>
+              <span className="font-mono text-[10px] text-[#8E95A3]">
+                {petugas?.institusi || 'DASHBOARD VERIFIKASI'}
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 font-mono text-[12px]">
@@ -104,9 +121,15 @@ export default function DashboardPage() {
         </div>
 
         <button
-          onClick={() => {
+          onClick={async () => {
+            try {
+              await fetch('/api/auth/logout', { method: 'POST' });
+            } catch {
+              // ignore network errors, still clear local session
+            }
             localStorage.removeItem('sigap_auth');
             router.push('/login');
+            router.refresh();
           }}
           className="font-mono text-[12px] text-[#525866] hover:text-[#DC2626] flex items-center gap-2 pt-6 border-t border-[#D0D5DD]"
         >
