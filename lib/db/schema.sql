@@ -52,10 +52,10 @@ CREATE TABLE IF NOT EXISTS public.rate_limit (
   last_request TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Seed Data Demo
+-- Seed Data Demo (Wilayah Kota Palembang & Sumatera Selatan)
 INSERT INTO public.petugas (id, nama, email, institusi, role)
 VALUES 
-  ('a0000000-0000-0000-0000-000000000001', 'Komandan Budi Santoso', 'petugas@sigap.go.id', 'Manggala Agni / BPBD Riau', 'ADMIN')
+  ('a0000000-0000-0000-0000-000000000001', 'Komandan Budi Santoso', 'petugas@sigap.go.id', 'Manggala Agni / BPBD Sumatera Selatan', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO public.laporan (id, kode, foto_url, lat_gps, lng_gps, lat_exif, lng_exif, jarak_exif_gps_m, flag_manual, wilayah, deskripsi, skala, status_verifikasi, status_penanganan, created_at)
@@ -64,14 +64,14 @@ VALUES
     'c0000000-0000-0000-0000-000000000001',
     'SIGAP-20260916-001',
     'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1000&q=80',
-    0.5071,
-    101.4478,
-    0.5073,
-    101.4480,
+    -3.0037,
+    104.7060,
+    -3.0039,
+    104.7062,
     30,
     FALSE,
-    'Kec. Tampan, Kota Pekanbaru, Riau',
-    'Terlihat asap tebal membumbung tinggi dari lahan gambut pinggir jalan utama.',
+    'Kec. Gandus, Kota Palembang, Sumatera Selatan',
+    'Terlihat asap tebal membumbung tinggi dari lahan gambut kering tepi Sungai Musi.',
     'BESAR',
     'terverifikasi',
     'diproses',
@@ -81,17 +81,34 @@ VALUES
     'c0000000-0000-0000-0000-000000000002',
     'SIGAP-20260916-002',
     'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?auto=format&fit=crop&w=1000&q=80',
-    -0.0263,
-    109.3425,
-    -0.0350,
-    109.3500,
-    1200,
+    -2.9176,
+    104.7063,
+    -2.9480,
+    104.7010,
+    3430,
     TRUE,
-    'Kec. Sungai Raya, Kab. Kubu Raya, Kalimantan Barat',
-    'Kebakaran rerumputan kering dekat pemukiman warga.',
+    'Kec. Sukarami, Kota Palembang, Sumatera Selatan',
+    'Kebakaran rerumputan dan semak kering dekat permukiman warga.',
     'SEDANG',
     'belum-diverifikasi',
     'menunggu',
     NOW() - INTERVAL '45 minutes'
+  ),
+  (
+    'c0000000-0000-0000-0000-000000000003',
+    'SIGAP-20260916-003',
+    'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?auto=format&fit=crop&w=1000&q=80',
+    -3.2456,
+    104.6570,
+    NULL,
+    NULL,
+    NULL,
+    FALSE,
+    'Kec. Indralaya, Kab. Ogan Ilir, Sumatera Selatan',
+    'Titik api kecil bekas pembakaran lahan semak yang mulai meluas.',
+    'KECIL',
+    'terverifikasi',
+    'selesai',
+    NOW() - INTERVAL '24 hours'
   )
 ON CONFLICT (kode) DO NOTHING;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Upload, Camera, MapPin, AlertOctagon, CheckCircle2, ShieldCheck, Flame, RefreshCw } from 'lucide-react';
+import { Camera, MapPin, AlertOctagon, CheckCircle2, ShieldCheck, Flame, RefreshCw, Aperture } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -40,10 +40,28 @@ export default function LaporPage() {
   const [toastMessage, setToastMessage] = useState<{ msg: string; idCode?: string; type?: 'success' | 'error' } | null>(null);
   const [submittedReport, setSubmittedReport] = useState<any | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     requestBrowserLocation();
+  }, []);
+
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [cameraActive]);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
   }, []);
 
   const requestBrowserLocation = () => {
@@ -72,35 +90,85 @@ export default function LaporPage() {
       (err) => {
         console.warn('Geolocation denied or failed:', err);
         setGpsStatus('DENIED');
-        setGpsLat(0.5071);
-        setGpsLng(101.4478);
-        setWilayah('Kec. Tampan, Kota Pekanbaru, Riau (Fallback Pin)');
+        setGpsLat(-3.0037);
+        setGpsLng(104.706);
+        setWilayah('Kec. Gandus, Kota Palembang, Sumatera Selatan (Fallback Pin)');
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+  };
 
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      alert('Ukuran file maksimal 10MB');
+  const startCamera = async () => {
+    setCameraError(null);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Perangkat ini tidak mendukung akses kamera langsung.');
       return;
     }
 
-    setFile(selectedFile);
-    setPhotoPreview(URL.createObjectURL(selectedFile));
-
-    const parsed = await parseExifData(selectedFile);
-    setExifInfo(parsed);
-
-    if (gpsLat !== null && gpsLng !== null && parsed.latitude && parsed.longitude) {
-      const check = evaluateLocationIntegrity(gpsLat, gpsLng, parsed.latitude, parsed.longitude);
-      setGeoIntegrity(check);
-    } else {
-      setGeoIntegrity(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setCameraActive(true);
+    } catch (err) {
+      console.warn('Camera access failed:', err);
+      setCameraError('Akses kamera ditolak atau tidak tersedia. Izinkan kamera lalu coba lagi.');
     }
+  };
+
+  const capturePhoto = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, width, height);
+
+    setPhotoPreview(canvas.toDataURL('image/jpeg', 0.85));
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85)
+    );
+
+    if (blob) {
+      const captured = new File([blob], `sigap-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setFile(captured);
+
+      const parsed = await parseExifData(captured);
+      setExifInfo(parsed);
+
+      if (gpsLat !== null && gpsLng !== null && parsed.latitude && parsed.longitude) {
+        const check = evaluateLocationIntegrity(gpsLat, gpsLng, parsed.latitude, parsed.longitude);
+        setGeoIntegrity(check);
+      } else {
+        setGeoIntegrity(null);
+      }
+    }
+
+    stopCamera();
+  };
+
+  const retakePhoto = () => {
+    setFile(null);
+    setPhotoPreview(null);
+    setExifInfo(null);
+    setGeoIntegrity(null);
+    startCamera();
   };
 
   const handlePinDragEnd = async (lat: number, lng: number) => {
@@ -220,7 +288,10 @@ export default function LaporPage() {
                   setSubmittedReport(null);
                   setFile(null);
                   setPhotoPreview(null);
+                  setExifInfo(null);
+                  setGeoIntegrity(null);
                   setDeskripsi('');
+                  stopCamera();
                 }}
               >
                 BUAT LAPORAN BARU
@@ -234,33 +305,23 @@ export default function LaporPage() {
           </Card>
         ) : (
           <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            {/* Left Column: Photo Upload & EXIF check */}
+            {/* Left Column: Live Camera Capture & EXIF check */}
             <div className="lg:col-span-5 flex flex-col gap-6">
               <div className="flex flex-col gap-2">
                 <label className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#000000] font-bold flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-[#000000]" /> 1. UNGGAH FOTO BUKTI VISUAL
+                  <Camera className="w-4 h-4 text-[#000000]" /> 1. AMBIL FOTO LANGSUNG (KAMERA)
                 </label>
                 <span className="font-body text-[14px] text-[#272E3B] font-medium">
-                  Ambil foto langsung dari kamera perangkat atau unggah berkas gambar.
+                  Foto wajib diambil langsung dari kamera perangkat saat kejadian. Tidak tersedia unggah berkas dari galeri.
                 </span>
               </div>
 
-              {/* Upload Dropzone */}
+              {/* Live Camera Capture */}
               <div
-                onClick={() => fileInputRef.current?.click()}
                 className={`w-full aspect-[4/3] bg-[#FFFFFF] border-2 border-dashed ${
-                  photoPreview ? 'border-[#000000]' : 'border-[#000000]/40 hover:border-[#000000]'
-                } flex flex-col items-center justify-center p-6 cursor-pointer relative overflow-hidden transition-colors group`}
+                  photoPreview ? 'border-[#000000]' : 'border-[#000000]/40'
+                } flex flex-col items-center justify-center relative overflow-hidden transition-colors`}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-
                 {photoPreview ? (
                   <>
                     <img
@@ -268,25 +329,56 @@ export default function LaporPage() {
                       alt="Preview Kebakaran"
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-[#000000]/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[#FFFFFF] font-mono text-[12px] uppercase transition-opacity">
-                      <RefreshCw className="w-6 h-6 mb-2 text-[#FFFFFF]" />
-                      KLIK UNTUK GANTI FOTO
+                    <div className="absolute inset-x-0 bottom-0 bg-[#000000]/85 p-3 flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={retakePhoto}
+                        className="font-mono text-[12px] uppercase text-[#FFFFFF] font-bold flex items-center gap-2 hover:underline"
+                      >
+                        <RefreshCw className="w-4 h-4 text-[#FFFFFF]" /> AMBIL ULANG FOTO
+                      </button>
                     </div>
                   </>
+                ) : cameraActive ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover bg-[#000000]"
+                    />
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[48px] px-6 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold flex items-center gap-2 hover:bg-[#272E3B] transition-colors"
+                    >
+                      <Aperture className="w-4 h-4 text-[#FFFFFF]" /> JEPRET FOTO
+                    </button>
+                  </>
                 ) : (
-                  <div className="flex flex-col items-center text-center gap-3">
+                  <div className="flex flex-col items-center text-center gap-3 p-6">
                     <div className="w-12 h-12 bg-[#EDEDED] border border-[#000000] flex items-center justify-center text-[#000000]">
-                      <Upload className="w-5 h-5 text-[#000000]" />
+                      <Camera className="w-5 h-5 text-[#000000]" />
                     </div>
-                    <div className="font-mono text-[13px] font-bold text-[#000000]">
-                      KLIK ATAU DRAG FOTO KE SINI
-                    </div>
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="h-[44px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold hover:bg-[#272E3B] transition-colors"
+                    >
+                      AKTIFKAN KAMERA
+                    </button>
                     <span className="font-mono text-[11px] text-[#272E3B] font-bold">
-                      JPG, PNG, WEBP — MAKS 10MB
+                      IZINKAN AKSES KAMERA SAAT DIMINTA BROWSER
                     </span>
+                    {cameraError && (
+                      <span className="font-mono text-[11px] text-[#DC2626] font-bold">{cameraError}</span>
+                    )}
                   </div>
                 )}
               </div>
+
+              <canvas ref={canvasRef} className="hidden" />
 
               {/* EXIF Metadata Card */}
               {exifInfo && (

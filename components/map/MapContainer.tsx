@@ -17,8 +17,8 @@ interface MapProps {
 
 export default function LeafletMapComponent({
   reports,
-  center = [0.5071, 101.4478],
-  zoom = 6,
+  center = [-3.0, 104.5],
+  zoom = 7,
   interactive = true,
   onSelectReport,
   draggablePin = false,

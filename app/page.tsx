@@ -99,7 +99,7 @@ export default async function LandingPage() {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute bottom-3 left-3 right-3 font-mono text-[11px] bg-[#FFFFFF]/95 p-2 border border-[#000000] flex justify-between items-center text-[#000000] font-bold">
-                    <span>LAT: 0.5071  LNG: 101.4478</span>
+                    <span>LAT: -3.0037  LNG: 104.7060</span>
                     <span className="text-[#272E3B]">EXIF MATCH</span>
                   </div>
                 </div>

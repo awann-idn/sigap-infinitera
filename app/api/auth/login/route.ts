@@ -12,7 +12,7 @@ export async function POST(request: Request) {
           id: 'a0000000-0000-0000-0000-000000000001',
           nama: 'Komandan Budi Santoso',
           email: 'petugas@sigap.go.id',
-          institusi: 'Manggala Agni / BPBD Riau',
+          institusi: 'Manggala Agni / BPBD Sumatera Selatan',
           role: 'ADMIN',
         },
       });
