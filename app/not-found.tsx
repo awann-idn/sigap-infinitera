@@ -5,7 +5,7 @@ import { AlertOctagon } from 'lucide-react';
 
 export default function NotFound() {
   return (
-    <div className="w-full min-h-[60vh] flex flex-col items-center justify-center py-20 px-5 text-center bg-[#EDEDED]">
+    <div className="w-full min-h-[60vh] flex flex-col items-center justify-center py-20 px-5 text-center bg-[#FFF9F2]">
       <div className="w-16 h-16 bg-[#000000] text-[#FFFFFF] flex items-center justify-center mb-6">
         <AlertOctagon className="w-10 h-10 text-[#FFFFFF]" />
       </div>

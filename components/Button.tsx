@@ -14,15 +14,15 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const baseStyles =
-    'h-[48px] px-8 font-mono text-[13px] font-bold tracking-[0.08em] uppercase inline-flex items-center justify-center transition-colors duration-150 border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed select-none';
+    'h-[48px] px-8 font-mono text-[13px] font-bold tracking-[0.08em] uppercase inline-flex items-center justify-center transition-colors duration-150 border-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed select-none';
 
   const variants = {
     primary:
-      'bg-[#000000] text-[#FFFFFF] hover:bg-[#222222] active:bg-[#000000]',
+      'bg-[#800020] text-[#FFFFFF] border-[#800020] hover:bg-[#9E1B36] hover:border-[#9E1B36] active:bg-[#5C0016] active:border-[#5C0016]',
     outline:
-      'bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#F3F4F6]',
+      'bg-[#FFFFFF] text-[#800020] border-[#800020] hover:bg-[#F3E6D5]',
     ghost:
-      'bg-transparent text-[#000000] hover:bg-[#FFFFFF]',
+      'bg-transparent text-[#800020] border-transparent hover:bg-[#F3E6D5]',
   };
 
   return (

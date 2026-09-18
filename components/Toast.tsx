@@ -29,7 +29,7 @@ export function Toast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-6 right-6 z-[9990] bg-[#FFFFFF] border-2 border-[#000000] p-4 max-w-md w-full flex items-start justify-between gap-4 transition-all duration-200 shadow-xl"
+      className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-[9990] bg-[#FFFFFF] border-2 border-[#800020] p-4 sm:max-w-md w-auto sm:w-full flex items-start justify-between gap-4 transition-all duration-200 shadow-xl"
     >
       <div className="flex items-start gap-3">
         {type === 'success' ? (
@@ -42,7 +42,7 @@ export function Toast({
             {message}
           </div>
           {idCode && (
-            <div className="font-mono text-[13px] text-[#000000] font-bold bg-[#E2E8F0] px-2 py-1 border border-[#94A3B8] w-fit">
+            <div className="font-mono text-[13px] text-[#000000] font-bold bg-[#F3E6D5] px-2 py-1 border border-[#94A3B8] w-fit">
               ID: {idCode}
             </div>
           )}
@@ -50,7 +50,7 @@ export function Toast({
       </div>
       <button
         onClick={onClose}
-        className="text-[#000000] hover:text-[#FF4D00] transition-colors p-1"
+        className="text-[#000000] hover:text-[#D45060] transition-colors p-1"
         aria-label="Tutup notifikasi"
       >
         <X className="w-4 h-4" />

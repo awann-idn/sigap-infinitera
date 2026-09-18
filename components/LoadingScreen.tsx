@@ -69,20 +69,20 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     <LoadingContext.Provider value={{ isLoading, finishLoading: () => setIsLoading(false) }}>
       {isLoading && (
         <div
-          className={`loading-screen fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#EDEDED] transition-opacity duration-400 ease-in-out ${
+          className={`loading-screen fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#FFF9F2] transition-opacity duration-400 ease-in-out ${
             isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
           aria-live="polite"
         >
           {/* 000 - 100 Counter */}
-          <div className="font-display text-[clamp(64px,15vw,160px)] font-bold tracking-[-0.06em] text-[#0F141A] leading-none select-none">
+          <div className="font-display text-[clamp(64px,15vw,160px)] font-bold tracking-[-0.06em] text-[#800020] leading-none select-none">
             {String(progress).padStart(3, '0')}
           </div>
 
           {/* Progress Bar */}
           <div className="w-[min(400px,80vw)] h-[2px] bg-[#D0D5DD] mt-8 overflow-hidden">
             <div
-              className="h-full bg-[#0F141A] transition-[width] duration-16 ease-linear"
+              className="h-full bg-[#800020] transition-[width] duration-16 ease-linear"
               style={{ width: `${progress}%` }}
             />
           </div>

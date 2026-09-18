@@ -11,7 +11,7 @@ import { LaporanItem } from '@/lib/db/store';
 const LeafletMap = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full min-h-[500px] bg-[#0F141A] border border-[#2B3542] flex items-center justify-center font-mono text-[11px] text-[#8E95A3]">
+    <div className="w-full h-full min-h-[500px] bg-[#800020] border border-[#800020] flex items-center justify-center font-mono text-[11px] text-[#8E95A3]">
       MEMUAT INTERACTIVE MAP LEAFLET...
     </div>
   ),
@@ -72,8 +72,8 @@ export default function PetaPage() {
                     onClick={() => setStatusFilter(s)}
                     className={`px-3 py-1 uppercase text-[11px] border transition-colors ${
                       statusFilter === s
-                        ? 'bg-[#0F141A] text-[#FFFFFF] border-[#0F141A] font-bold'
-                        : 'bg-[#EDEDED] text-[#525866] border-[#D0D5DD] hover:border-[#0F141A]'
+                        ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
+                        : 'bg-[#FFF9F2] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
                     }`}
                   >
                     {s}
@@ -91,8 +91,8 @@ export default function PetaPage() {
                     onClick={() => setSkalaFilter(sk)}
                     className={`px-3 py-1 uppercase text-[11px] border transition-colors ${
                       skalaFilter === sk
-                        ? 'bg-[#0F141A] text-[#FFFFFF] border-[#0F141A] font-bold'
-                        : 'bg-[#EDEDED] text-[#525866] border-[#D0D5DD] hover:border-[#0F141A]'
+                        ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
+                        : 'bg-[#FFF9F2] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
                     }`}
                   >
                     {sk}
@@ -104,7 +104,7 @@ export default function PetaPage() {
 
           <button
             onClick={fetchReports}
-            className="flex items-center gap-1.5 text-[#0F141A] hover:underline uppercase font-bold"
+            className="flex items-center gap-1.5 text-[#800020] hover:underline uppercase font-bold"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#525866]" /> REFRESH PETA
           </button>
@@ -112,7 +112,7 @@ export default function PetaPage() {
 
         {/* Map Layout - Dark Software Telemetry Panel Matching Screenshot */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-[550px]">
-          <div className="lg:col-span-8 w-full h-[550px] relative border border-[#2B3542] bg-[#0F141A]">
+          <div className="lg:col-span-8 w-full h-[550px] relative border border-[#800020] bg-[#800020]">
             <LeafletMap
               reports={filteredReports}
               onSelectReport={(report) => setSelectedReport(report)}
@@ -141,22 +141,22 @@ export default function PetaPage() {
                   onClick={() => setSelectedReport(report)}
                   className={`cursor-pointer transition-all ${
                     selectedReport?.id === report.id
-                      ? 'border-[#0F141A] bg-[#FFFFFF]'
-                      : 'border-[#D0D5DD] hover:border-[#0F141A]'
+                      ? 'border-[#800020] bg-[#FFFFFF]'
+                      : 'border-[#D0D5DD] hover:border-[#800020]'
                   }`}
                 >
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[12px] text-[#0F141A] font-bold">
+                      <span className="font-mono text-[12px] text-[#800020] font-bold">
                         {report.kode}
                       </span>
                       <Badge type="verifikasi" value={report.status_verifikasi} isDashboard={false} />
                     </div>
-                    <h4 className="font-display font-bold text-[16px] text-[#0F141A] leading-snug">
+                    <h4 className="font-display font-bold text-[16px] text-[#800020] leading-snug">
                       {report.wilayah}
                     </h4>
                     <div className="flex items-center justify-between font-mono text-[11px] text-[#525866] pt-2 border-t border-[#D0D5DD]">
-                      <span>SKALA: <span className="text-[#0F141A] font-bold">{report.skala}</span></span>
+                      <span>SKALA: <span className="text-[#800020] font-bold">{report.skala}</span></span>
                       <span className="text-[#8E95A3]">{new Date(report.created_at).toLocaleDateString('id-ID')}</span>
                     </div>
                   </div>

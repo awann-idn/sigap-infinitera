@@ -4,13 +4,13 @@ import { Shield, PhoneCall, Lock } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-[#E2E8F0] border-t-2 border-[#000000] w-full text-[#000000] mt-auto font-medium">
+    <footer className="bg-[#F3E6D5] border-t-2 border-[#000000] w-full text-[#000000] mt-auto font-medium">
       <div className="max-w-[1440px] mx-auto px-5 lg:px-10 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-[#000000]">
           {/* Col 1: Brand */}
           <div className="md:col-span-2 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-[16px] h-[16px] bg-[#FF4D00]"></div>
+              <div className="w-[16px] h-[16px] bg-[#D45060]"></div>
               <span className="font-display font-bold text-[26px] text-[#000000]">SIGAP</span>
             </div>
             <p className="font-body text-[15px] text-[#000000] max-w-md leading-relaxed font-medium">

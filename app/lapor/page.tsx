@@ -305,7 +305,7 @@ export default function LaporPage() {
 
         {submittedReport ? (
           <Card className="max-w-2xl mx-auto p-8 border border-[#D0D5DD] flex flex-col items-center text-center gap-6">
-            <div className="w-16 h-16 bg-[#0F141A] text-[#FFFFFF] flex items-center justify-center">
+            <div className="w-16 h-16 bg-[#800020] text-[#FFFFFF] flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10" />
             </div>
 
@@ -313,7 +313,7 @@ export default function LaporPage() {
               <span className="font-mono text-[11px] text-[#525866] uppercase tracking-[0.1em]">
                 LAPORAN TELAH DITERIMA SISTEM
               </span>
-              <h3 className="font-display font-bold text-[32px] text-[#0F141A]">
+              <h3 className="font-display font-bold text-[32px] text-[#800020]">
                 {submittedReport.kode}
               </h3>
               <p className="font-body text-[15px] text-[#525866] max-w-md">
@@ -321,18 +321,18 @@ export default function LaporPage() {
               </p>
             </div>
 
-            <div className="w-full bg-[#EDEDED] p-4 border border-[#D0D5DD] font-mono text-[12px] flex flex-col gap-2 text-left">
+            <div className="w-full bg-[#FFF9F2] p-4 border border-[#D0D5DD] font-mono text-[12px] flex flex-col gap-2 text-left">
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">WILAYAH:</span>
-                <span className="text-[#0F141A] font-bold">{submittedReport.wilayah}</span>
+                <span className="text-[#800020] font-bold">{submittedReport.wilayah}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">SKALA KEBAKARAN:</span>
-                <span className="text-[#0F141A] font-bold">{submittedReport.skala}</span>
+                <span className="text-[#800020] font-bold">{submittedReport.skala}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">KOORDINAT GPS:</span>
-                <span className="text-[#0F141A]">{submittedReport.lat_gps}, {submittedReport.lng_gps}</span>
+                <span className="text-[#800020]">{submittedReport.lat_gps}, {submittedReport.lng_gps}</span>
               </div>
             </div>
 
@@ -414,7 +414,7 @@ export default function LaporPage() {
                   </>
                 ) : (
                   <div className="flex flex-col items-center text-center gap-3 p-6">
-                    <div className="w-12 h-12 bg-[#EDEDED] border border-[#000000] flex items-center justify-center text-[#000000]">
+                    <div className="w-12 h-12 bg-[#FFF9F2] border border-[#000000] flex items-center justify-center text-[#000000]">
                       <Camera className="w-5 h-5 text-[#000000]" />
                     </div>
                     <button
@@ -487,7 +487,7 @@ export default function LaporPage() {
                     </span>
                   </div>
 
-                  <div className="font-mono text-[16px] font-bold text-[#000000] bg-[#EDEDED] p-3 border border-[#000000] flex items-center justify-between">
+                  <div className="font-mono text-[16px] font-bold text-[#000000] bg-[#FFF9F2] p-3 border border-[#000000] flex items-center justify-between">
                     <span>
                       LAT: {gpsLat !== null ? gpsLat.toFixed(5) : '...'} &nbsp; LNG:{' '}
                       {gpsLng !== null ? gpsLng.toFixed(5) : '...'}
@@ -538,7 +538,7 @@ export default function LaporPage() {
               <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#525866] font-bold flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-[#0F141A]" /> 3. SKALA KEBAKARAN
+                    <Flame className="w-4 h-4 text-[#800020]" /> 3. SKALA KEBAKARAN
                   </label>
                   <div className="grid grid-cols-3 gap-4">
                     {(['KECIL', 'SEDANG', 'BESAR'] as const).map((s) => (
@@ -548,8 +548,8 @@ export default function LaporPage() {
                         onClick={() => setSkala(s)}
                         className={`h-[48px] font-mono text-[13px] uppercase tracking-[0.06em] border font-bold transition-all ${
                           skala === s
-                            ? 'bg-[#0F141A] text-[#FFFFFF] border-[#0F141A]'
-                            : 'bg-[#FFFFFF] text-[#525866] border-[#D0D5DD] hover:border-[#0F141A]'
+                            ? 'bg-[#800020] text-[#FFFFFF] border-[#800020]'
+                            : 'bg-[#FFFFFF] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
                         }`}
                       >
                         {s}

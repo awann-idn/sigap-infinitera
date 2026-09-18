@@ -41,7 +41,7 @@ export default async function LandingPage() {
   return (
     <div className="w-full flex flex-col">
       {/* HERO SECTION */}
-      <section className="w-full border-b border-[#C1C7D0] py-16 md:py-28 relative bg-[#EDEDED]">
+      <section className="w-full border-b border-[#C1C7D0] py-16 md:py-28 relative bg-[#FFF9F2]">
         <div className="max-w-[1440px] mx-auto px-5 lg:px-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Left Column */}
           <div className="lg:col-span-7 flex flex-col gap-6">
@@ -85,14 +85,14 @@ export default async function LandingPage() {
             <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 relative w-full shadow-md">
               <div className="flex items-center justify-between pb-3 border-b border-[#C1C7D0] font-mono text-[11px] text-[#272E3B] font-bold">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-[#FF4D00]"></span>
+                  <span className="w-2.5 h-2.5 bg-[#D45060]"></span>
                   <span>PREVIEW SYSTEM MVP</span>
                 </div>
                 <span>SIGAP-SYS v1.0</span>
               </div>
 
               <div className="mt-4 flex flex-col gap-4">
-                <div className="relative aspect-[16/10] bg-[#EDEDED] border border-[#C1C7D0] overflow-hidden">
+                <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#C1C7D0] overflow-hidden">
                   <img
                     src="/images/karhutla_smoke_forest.png"
                     alt="Laporan Titik Api Peatland"
@@ -104,7 +104,7 @@ export default async function LandingPage() {
                   </div>
                 </div>
 
-                <div className="bg-[#EDEDED] p-3 border border-[#C1C7D0] flex items-center justify-between font-mono text-[12px]">
+                <div className="bg-[#FFF9F2] p-3 border border-[#C1C7D0] flex items-center justify-between font-mono text-[12px]">
                   <span className="text-[#4B5565] font-bold">STATUS TERAKHIR:</span>
                   <span className="text-[#000000] font-bold uppercase">2 TERVERIFIKASI LAPANGAN</span>
                 </div>
@@ -115,7 +115,7 @@ export default async function LandingPage() {
       </section>
 
       {/* STATISTIK SECTION */}
-      <section className="w-full border-b border-[#C1C7D0] bg-[#E2E8F0] py-16">
+      <section className="w-full border-b border-[#C1C7D0] bg-[#F3E6D5] py-16">
         <div className="max-w-[1440px] mx-auto px-5 lg:px-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-0 divide-y md:divide-y-0 md:divide-x divide-[#C1C7D0]">
             <div className="flex flex-col gap-2 md:px-8 first:pl-0">
@@ -171,7 +171,7 @@ export default async function LandingPage() {
             {edukasiArticles.map((art) => (
               <Card key={art.id} className="flex flex-col justify-between group border-[#C1C7D0]">
                 <div className="flex flex-col gap-4">
-                  <div className="relative aspect-[16/9] bg-[#EDEDED] overflow-hidden border border-[#C1C7D0]">
+                  <div className="relative aspect-[16/9] bg-[#FFF9F2] overflow-hidden border border-[#C1C7D0]">
                     <img
                       src={art.image}
                       alt={art.title}
@@ -202,7 +202,7 @@ export default async function LandingPage() {
       </section>
 
       {/* KONTAK DARURAT RESMI SECTION */}
-      <section className="w-full py-20 bg-[#EDEDED]">
+      <section className="w-full py-20 bg-[#FFF9F2]">
         <div className="max-w-[1440px] mx-auto px-5 lg:px-10">
           <div className="bg-[#FFFFFF] border-2 border-[#000000] p-8 lg:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex items-start gap-4">

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Key, Info } from 'lucide-react';
+import { Lock, Key } from 'lucide-react';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { Input } from '@/components/Input';
@@ -45,7 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full py-16 flex items-center justify-center flex-1 bg-[#EDEDED]">
+    <div className="w-full py-16 flex items-center justify-center flex-1 bg-[#FFF9F2]">
       <div className="max-w-md w-full px-5">
         <Card className="p-8 border-2 border-[#000000]">
           <div className="flex flex-col gap-6">
@@ -91,19 +91,8 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {supabaseReady ? (
-              <div className="p-4 bg-[#EDEDED] border border-[#000000] font-mono text-[12px] text-[#000000] flex flex-col gap-1">
-                <div className="text-[#000000] font-bold flex items-center gap-1">
-                  <Info className="w-4 h-4 text-[#000000]" /> SUPABASE AUTH AKTIF
-                </div>
-                <div>
-                  Buat user petugas di Supabase: <span className="font-bold">Authentication → Users → Add user</span>{' '}
-                  (centang Auto Confirm), atau jalankan:
-                </div>
-                <div className="text-[#000000] font-bold">npm run create-petugas</div>
-              </div>
-            ) : (
-              <div className="p-4 bg-[#EDEDED] border border-[#000000] font-mono text-[12px] text-[#000000] flex flex-col gap-1">
+            {!supabaseReady && (
+              <div className="p-4 bg-[#F3E6D5] border border-[#000000] font-mono text-[12px] text-[#000000] flex flex-col gap-1">
                 <div className="text-[#000000] font-bold flex items-center gap-1">
                   <Key className="w-4 h-4 text-[#000000]" /> AKUN DEMO PETUGAS:
                 </div>

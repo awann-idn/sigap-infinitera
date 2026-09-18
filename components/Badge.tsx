@@ -20,7 +20,7 @@ export function Badge({ type = 'verifikasi', value, isDashboard = false, classNa
     else label = value.toUpperCase();
 
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.08em] uppercase text-[#272E3B] bg-[#E2E8F0] border border-[#94A3B8] ${className}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.08em] uppercase text-[#272E3B] bg-[#F3E6D5] border border-[#94A3B8] ${className}`}>
         {label}
       </span>
     );
@@ -60,7 +60,7 @@ export function Badge({ type = 'verifikasi', value, isDashboard = false, classNa
         break;
     }
   } else if (type === 'skala') {
-    colorStyle = 'text-[#000000] border-[#000000] bg-[#EDEDED] font-bold';
+    colorStyle = 'text-[#000000] border-[#000000] bg-[#FFF9F2] font-bold';
     label = value.toUpperCase();
   }
 

@@ -49,7 +49,7 @@ export default function RootLayout({
       lang="id"
       className={`${spaceGrotesk.variable} ${dmSans.variable} ${spaceMono.variable}`}
     >
-      <body className="bg-[#EDEDED] text-[#000000] antialiased min-h-screen flex flex-col selection:bg-[#000000] selection:text-[#FFFFFF]">
+      <body className="bg-[#FFF9F2] text-[#000000] antialiased min-h-screen flex flex-col selection:bg-[#000000] selection:text-[#FFFFFF]">
         <LoadingProvider>
           <Navbar />
           <main className="flex-1 w-full flex flex-col">{children}</main>

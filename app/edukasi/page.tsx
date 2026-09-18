@@ -72,7 +72,7 @@ export default function EdukasiPage() {
           {articles.map((art) => (
             <Card key={art.id} className="flex flex-col justify-between border-2 border-[#000000]">
               <div className="flex flex-col gap-4">
-                <div className="relative aspect-[16/9] bg-[#EDEDED] overflow-hidden border border-[#000000]">
+                <div className="relative aspect-[16/9] bg-[#FFF9F2] overflow-hidden border border-[#000000]">
                   <img
                     src={art.image}
                     alt={art.title}
@@ -110,7 +110,7 @@ export default function EdukasiPage() {
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : index)}
-                    className="w-full p-6 text-left flex items-center justify-between gap-4 font-display font-bold text-[18px] text-[#000000] hover:bg-[#EDEDED]"
+                    className="w-full p-6 text-left flex items-center justify-between gap-4 font-display font-bold text-[18px] text-[#000000] hover:bg-[#FFF9F2]"
                   >
                     <span>{faq.q}</span>
                     <ChevronDown

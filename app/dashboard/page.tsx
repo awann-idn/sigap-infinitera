@@ -11,7 +11,7 @@ import { LaporanItem } from '@/lib/db/store';
 const LeafletMap = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[180px] bg-[#0F141A] border border-[#2B3542] flex items-center justify-center font-mono text-[11px] text-[#8E95A3]">
+    <div className="w-full h-[180px] bg-[#800020] border border-[#800020] flex items-center justify-center font-mono text-[11px] text-[#8E95A3]">
       MEMUAT MINI MAP...
     </div>
   ),
@@ -89,16 +89,16 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="w-full flex-1 flex flex-col lg:flex-row bg-[#EDEDED] border-t border-[#D0D5DD]">
+    <div className="w-full flex-1 flex flex-col lg:flex-row bg-[#FFF9F2] border-t border-[#D0D5DD]">
       {/* Sidebar 240px */}
       <aside className="w-full lg:w-[240px] bg-[#FFFFFF] border-b lg:border-b-0 lg:border-r border-[#D0D5DD] p-6 flex flex-col justify-between shrink-0">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-2 pb-4 border-b border-[#D0D5DD]">
-            <div className="w-7 h-7 bg-[#0F141A] text-[#FFFFFF] flex items-center justify-center font-bold">
+            <div className="w-7 h-7 bg-[#800020] text-[#FFFFFF] flex items-center justify-center font-bold">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div className="flex flex-col">
-              <span className="font-display font-bold text-[16px] text-[#0F141A]">
+              <span className="font-display font-bold text-[16px] text-[#800020]">
                 {petugas?.nama || 'PANEL PETUGAS'}
               </span>
               <span className="font-mono text-[10px] text-[#8E95A3]">
@@ -110,7 +110,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-2 font-mono text-[12px]">
             <button
               onClick={fetchReports}
-              className="p-3 bg-[#EDEDED] border border-[#D0D5DD] text-[#0F141A] font-bold text-left flex items-center gap-2 hover:border-[#0F141A]"
+              className="p-3 bg-[#FFF9F2] border border-[#D0D5DD] text-[#800020] font-bold text-left flex items-center gap-2 hover:border-[#800020]"
             >
               <RefreshCw className="w-4 h-4 text-[#525866]" /> REFRESH LAPORAN
             </button>
@@ -141,7 +141,7 @@ export default function DashboardPage() {
       <main className="flex-1 p-6 lg:p-10 flex flex-col gap-6 overflow-x-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#D0D5DD]">
           <div>
-            <h1 className="font-display font-bold text-[28px] text-[#0F141A]">
+            <h1 className="font-display font-bold text-[28px] text-[#800020]">
               DASHBOARD ADUAN KEBAKARAN
             </h1>
             <p className="font-mono text-[11px] text-[#8E95A3] uppercase mt-1">
@@ -154,7 +154,7 @@ export default function DashboardPage() {
             <select
               value={filterVerifikasi}
               onChange={(e) => setFilterVerifikasi(e.target.value)}
-              className="bg-[#FFFFFF] border border-[#D0D5DD] text-[#0F141A] px-3 py-2 focus:outline-none focus:border-[#0F141A]"
+              className="bg-[#FFFFFF] border border-[#D0D5DD] text-[#800020] px-3 py-2 focus:outline-none focus:border-[#800020]"
             >
               <option value="ALL">VERIFIKASI: SEMUA</option>
               <option value="belum-diverifikasi">BELUM DIVERIFIKASI</option>
@@ -165,7 +165,7 @@ export default function DashboardPage() {
             <select
               value={filterPenanganan}
               onChange={(e) => setFilterPenanganan(e.target.value)}
-              className="bg-[#FFFFFF] border border-[#D0D5DD] text-[#0F141A] px-3 py-2 focus:outline-none focus:border-[#0F141A]"
+              className="bg-[#FFFFFF] border border-[#D0D5DD] text-[#800020] px-3 py-2 focus:outline-none focus:border-[#800020]"
             >
               <option value="ALL">PENANGANAN: SEMUA</option>
               <option value="menunggu">MENUNGGU</option>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
         <div className="w-full bg-[#FFFFFF] border border-[#D0D5DD] overflow-x-auto">
           <table className="w-full text-left border-collapse font-body text-[14px]">
             <thead>
-              <tr className="bg-[#EDEDED] border-b border-[#D0D5DD] font-mono text-[11px] text-[#8E95A3] uppercase">
+              <tr className="bg-[#FFF9F2] border-b border-[#D0D5DD] font-mono text-[11px] text-[#8E95A3] uppercase">
                 <th className="p-4">KODE / ID</th>
                 <th className="p-4">WAKTU</th>
                 <th className="p-4">WILAYAH</th>
@@ -204,14 +204,14 @@ export default function DashboardPage() {
                 </tr>
               ) : (
                 filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#EDEDED] transition-colors">
-                    <td className="p-4 font-mono text-[13px] text-[#0F141A] font-bold">
+                  <tr key={item.id} className="hover:bg-[#FFF9F2] transition-colors">
+                    <td className="p-4 font-mono text-[13px] text-[#800020] font-bold">
                       {item.kode}
                     </td>
                     <td className="p-4 font-mono text-[12px] text-[#525866]">
                       {new Date(item.created_at).toLocaleTimeString('id-ID')}
                     </td>
-                    <td className="p-4 font-bold text-[#0F141A] max-w-[200px] truncate">
+                    <td className="p-4 font-bold text-[#800020] max-w-[200px] truncate">
                       {item.wilayah}
                     </td>
                     <td className="p-4">
@@ -226,7 +226,7 @@ export default function DashboardPage() {
                     <td className="p-4 text-right">
                       <button
                         onClick={() => setSelectedReport(item)}
-                        className="px-3 py-1.5 bg-[#FFFFFF] border border-[#D0D5DD] hover:border-[#0F141A] text-[#0F141A] font-mono text-[11px] uppercase inline-flex items-center gap-1 transition-colors"
+                        className="px-3 py-1.5 bg-[#FFFFFF] border border-[#D0D5DD] hover:border-[#800020] text-[#800020] font-mono text-[11px] uppercase inline-flex items-center gap-1 transition-colors"
                       >
                         <Eye className="w-3.5 h-3.5 text-[#525866]" /> DETAIL & AKSI
                       </button>
@@ -241,22 +241,22 @@ export default function DashboardPage() {
 
       {/* Report Detail Drawer Modal */}
       {selectedReport && (
-        <div className="fixed inset-0 z-[9990] bg-[#0F141A]/70 backdrop-blur-sm flex justify-end p-0">
+        <div className="fixed inset-0 z-[9990] bg-[#800020]/70 backdrop-blur-sm flex justify-end p-0">
           <div className="w-full max-w-2xl bg-[#FFFFFF] border-l border-[#D0D5DD] h-full overflow-y-auto p-6 lg:p-8 flex flex-col justify-between shadow-2xl">
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between pb-4 border-b border-[#D0D5DD]">
-                <div className="flex items-center gap-2 font-mono text-[14px] text-[#0F141A] font-bold">
+                <div className="flex items-center gap-2 font-mono text-[14px] text-[#800020] font-bold">
                   <span>DETAIL LAPORAN: {selectedReport.kode}</span>
                 </div>
                 <button
                   onClick={() => setSelectedReport(null)}
-                  className="p-1 text-[#8E95A3] hover:text-[#0F141A]"
+                  className="p-1 text-[#8E95A3] hover:text-[#800020]"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="relative aspect-[16/10] bg-[#EDEDED] border border-[#D0D5DD] overflow-hidden">
+              <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#D0D5DD] overflow-hidden">
                 <img
                   src={selectedReport.foto_url}
                   alt="Bukti Visual"
@@ -264,21 +264,21 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className="bg-[#EDEDED] p-4 border border-[#D0D5DD] flex flex-col gap-3 font-mono text-[12px]">
-                <div className="text-[#0F141A] font-bold uppercase">PERBANDINGAN INTEGRITAS GEOLOKASI</div>
+              <div className="bg-[#FFF9F2] p-4 border border-[#D0D5DD] flex flex-col gap-3 font-mono text-[12px]">
+                <div className="text-[#800020] font-bold uppercase">PERBANDINGAN INTEGRITAS GEOLOKASI</div>
                 <div className="flex justify-between">
                   <span className="text-[#8E95A3]">GPS BROWSER:</span>
-                  <span className="text-[#0F141A]">{selectedReport.lat_gps}, {selectedReport.lng_gps}</span>
+                  <span className="text-[#800020]">{selectedReport.lat_gps}, {selectedReport.lng_gps}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#8E95A3]">EXIF FOTO:</span>
-                  <span className="text-[#0F141A]">
+                  <span className="text-[#800020]">
                     {selectedReport.lat_exif !== undefined ? `${selectedReport.lat_exif}, ${selectedReport.lng_exif}` : 'TIDAK TERSEDIA'}
                   </span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-[#D0D5DD]">
                   <span className="text-[#8E95A3]">SELISIH JARAK:</span>
-                  <span className="text-[#0F141A] font-bold">
+                  <span className="text-[#800020] font-bold">
                     {selectedReport.jarak_exif_gps_m !== undefined ? `${selectedReport.jarak_exif_gps_m} METER` : 'N/A'}
                   </span>
                 </div>
@@ -289,13 +289,13 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="w-full h-[180px] border border-[#2B3542] bg-[#0F141A]">
+              <div className="w-full h-[180px] border border-[#800020] bg-[#800020]">
                 <LeafletMap reports={[selectedReport]} center={[selectedReport.lat_gps, selectedReport.lng_gps]} zoom={13} interactive={false} />
               </div>
 
               <div className="flex flex-col gap-1">
                 <span className="font-mono text-[11px] text-[#8E95A3] uppercase">DESKRIPSI PELAPOR:</span>
-                <p className="font-body text-[14px] text-[#0F141A] bg-[#EDEDED] p-3 border border-[#D0D5DD]">
+                <p className="font-body text-[14px] text-[#800020] bg-[#FFF9F2] p-3 border border-[#D0D5DD]">
                   {selectedReport.deskripsi || 'Tidak ada catatan deskripsi tambahan.'}
                 </p>
               </div>
@@ -326,8 +326,8 @@ export default function DashboardPage() {
                     onClick={() => handleUpdateStatus(selectedReport.id, undefined, p)}
                     className={`h-[40px] font-mono text-[11px] uppercase border transition-colors ${
                       selectedReport.status_penanganan === p
-                        ? 'bg-[#0F141A] text-[#FFFFFF] border-[#0F141A] font-bold'
-                        : 'bg-[#EDEDED] text-[#525866] border-[#D0D5DD] hover:border-[#0F141A]'
+                        ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
+                        : 'bg-[#FFF9F2] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
                     }`}
                   >
                     {p}

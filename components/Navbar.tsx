@@ -16,11 +16,11 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-[#EDEDED] border-b-2 border-[#000000] w-full shadow-sm">
+    <header className="sticky top-0 z-50 bg-[#FFF9F2] border-b-2 border-[#000000] w-full shadow-sm">
       <div className="max-w-[1440px] mx-auto px-5 lg:px-10 h-[76px] flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-[16px] h-[16px] bg-[#FF4D00] shrink-0"></div>
+          <div className="w-[16px] h-[16px] bg-[#D45060] shrink-0"></div>
           <span className="font-display font-bold text-[26px] tracking-[-0.03em] text-[#000000]">
             SIGAP
           </span>
@@ -43,7 +43,7 @@ export default function Navbar() {
                 className={`font-body text-[14px] font-bold tracking-[0.04em] uppercase transition-colors py-1 ${
                   isActive
                     ? 'text-[#000000] border-b-2 border-[#000000]'
-                    : 'text-[#000000] hover:text-[#FF4D00] opacity-80 hover:opacity-100'
+                    : 'text-[#000000] hover:text-[#D45060] opacity-80 hover:opacity-100'
                 }`}
               >
                 {link.label}
@@ -54,9 +54,9 @@ export default function Navbar() {
           {/* Prominent High-Visibility "LAPOR KEBAKARAN" Button */}
           <Link
             href="/lapor"
-            className="h-[42px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[13px] font-bold tracking-[0.06em] uppercase flex items-center gap-2 hover:bg-[#222222] transition-colors border border-[#000000]"
+            className="h-[42px] px-5 bg-[#800020] text-[#FFFFFF] font-mono text-[13px] font-bold tracking-[0.06em] uppercase flex items-center gap-2 hover:bg-[#9E1B36] transition-colors border border-[#800020]"
           >
-            <Flame className="w-4 h-4 text-[#FF4D00]" />
+            <Flame className="w-4 h-4 text-[#D45060]" />
             LAPOR KEBAKARAN
           </Link>
         </nav>
@@ -73,14 +73,14 @@ export default function Navbar() {
 
       {/* Mobile Nav Overlay */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#EDEDED] border-b-2 border-[#000000] px-5 py-6 flex flex-col gap-4">
+        <div className="md:hidden bg-[#FFF9F2] border-b-2 border-[#000000] px-5 py-6 flex flex-col gap-4">
           <Link
             href="/lapor"
             onClick={() => setMobileMenuOpen(false)}
-            className="p-4 bg-[#000000] text-[#FFFFFF] font-mono text-[14px] font-bold tracking-[0.06em] uppercase flex items-center justify-between"
+            className="p-4 bg-[#800020] text-[#FFFFFF] font-mono text-[14px] font-bold tracking-[0.06em] uppercase flex items-center justify-between"
           >
             <span>LAPOR KEBAKARAN</span>
-            <Flame className="w-5 h-5 text-[#FF4D00]" />
+            <Flame className="w-5 h-5 text-[#D45060]" />
           </Link>
 
           {navLinks.map((link) => (
