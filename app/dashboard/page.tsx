@@ -327,7 +327,10 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 flex flex-col gap-5">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 flex flex-col gap-5"
+              style={{ maxHeight: 'calc(90vh - 88px)' }}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#D0D5DD] overflow-hidden">
                   <img src={selectedReport.foto_url} alt="Bukti Visual" className="w-full h-full object-cover" />
