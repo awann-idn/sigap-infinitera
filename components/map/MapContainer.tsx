@@ -16,6 +16,7 @@ interface MapProps {
   center?: [number, number];
   zoom?: number;
   interactive?: boolean;
+  scrollWheelZoom?: boolean;
   selectedId?: string;
   onSelectReport?: (report: LaporanItem) => void;
   draggablePin?: boolean;
@@ -27,6 +28,7 @@ export default function LeafletMapComponent({
   center = DEFAULT_CENTER,
   zoom = 7,
   interactive = true,
+  scrollWheelZoom,
   onSelectReport,
   draggablePin = false,
   onPinDragEnd,
@@ -71,7 +73,7 @@ export default function LeafletMapComponent({
 
       const map = L.map(containerRef.current, {
         zoomControl: interactive,
-        scrollWheelZoom: interactive,
+        scrollWheelZoom: scrollWheelZoom ?? interactive,
         dragging: interactive,
         minZoom: 7,
         maxBounds: SOUTH_SUMATRA_BOUNDS,

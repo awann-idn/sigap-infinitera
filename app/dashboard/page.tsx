@@ -305,9 +305,9 @@ export default function DashboardPage() {
       {/* Detail & Action Modal (popup) */}
       {selectedReport && (
         <div className="fixed inset-0 z-[9990] bg-[#0F141A]/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-          <div className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-[#FFFFFF] border-2 border-[#800020] shadow-2xl">
+          <div className="w-full max-w-3xl h-[90vh] grid grid-rows-[auto_1fr] bg-[#FFFFFF] border-2 border-[#800020] shadow-2xl overflow-hidden">
             {/* Modal header */}
-            <div className="shrink-0 bg-[#FFFFFF] flex items-start justify-between gap-3 px-5 py-4 border-b border-[#D0D5DD]">
+            <div className="bg-[#FFFFFF] flex items-start justify-between gap-3 px-5 py-4 border-b border-[#D0D5DD]">
               <div className="flex flex-col gap-2 min-w-0">
                 <span className="font-mono text-[13px] text-[#800020] font-bold truncate">
                   DETAIL LAPORAN: {selectedReport.kode}
@@ -329,7 +329,7 @@ export default function DashboardPage() {
 
             <div
               className="min-h-0 overflow-y-auto overscroll-contain p-5 flex flex-col gap-5"
-              style={{ height: 'calc(90vh - 84px)', maxHeight: 'calc(90vh - 84px)', overflowY: 'scroll' }}
+              style={{ overflowY: 'auto' }}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#D0D5DD] overflow-hidden">
@@ -511,12 +511,13 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="w-full h-[180px] border border-[#5C0016] bg-[#800020]">
+              <div className="w-full h-[220px] border border-[#5C0016] bg-[#800020]">
                 <LeafletMap
                   reports={[selectedReport]}
                   center={[selectedReport.lat_gps, selectedReport.lng_gps]}
                   zoom={13}
-                  interactive={false}
+                  interactive={true}
+                  scrollWheelZoom={false}
                 />
               </div>
 
