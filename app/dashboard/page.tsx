@@ -337,7 +337,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-[#F3E6D5] p-4 border border-[#D0D5DD] flex flex-col gap-3 font-mono text-[12px]">
-                  <div className="text-[#800020] font-bold uppercase">Integritas Geolokasi</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#800020] font-bold uppercase">Integritas Geolokasi</span>
+                    <Badge type="keyakinan" value={selectedReport.tingkat_keyakinan || 'TINJAUAN'} isDashboard={true} />
+                  </div>
                   <div className="flex justify-between gap-3">
                     <span className="text-[#8E95A3]">GPS BROWSER:</span>
                     <span className="text-[#272E3B] text-right">{selectedReport.lat_gps}, {selectedReport.lng_gps}</span>
@@ -347,20 +350,35 @@ export default function DashboardPage() {
                     <span className="text-[#272E3B] text-right">
                       {selectedReport.lat_exif != null && selectedReport.lng_exif != null
                         ? `${selectedReport.lat_exif}, ${selectedReport.lng_exif}`
-                        : 'TIDAK TERSEDIA'}
+                        : 'Tidak tersedia'}
                     </span>
                   </div>
                   <div className="flex justify-between gap-3 pt-2 border-t border-[#D0D5DD]">
                     <span className="text-[#8E95A3]">SELISIH JARAK:</span>
-                    <span className="text-[#272E3B] font-bold">
-                      {selectedReport.jarak_exif_gps_m != null ? `${selectedReport.jarak_exif_gps_m} METER` : 'N/A'}
+                    <span className={`font-bold text-right ${
+                      selectedReport.tingkat_keyakinan === 'TINGGI' ? 'text-[#15803D]' :
+                      selectedReport.tingkat_keyakinan === 'CURIGA' ? 'text-[#B91C1C]' :
+                      'text-[#A16207]'
+                    }`}>
+                      {selectedReport.jarak_exif_gps_m != null
+                        ? `${selectedReport.jarak_exif_gps_m} METER`
+                        : 'EXIF tidak tersedia'}
                     </span>
                   </div>
-                  {selectedReport.flag_manual && (
-                    <div className="p-2 bg-[#FFFFFF] border border-[#B91C1C] text-[#B91C1C] text-[11px] font-bold">
-                      FLAG: SELISIH &gt; 500M / FALLBACK PIN PERLU DIVERIFIKASI
-                    </div>
-                  )}
+                  <div className="flex justify-between gap-3 pt-2 border-t border-[#D0D5DD]">
+                    <span className="text-[#8E95A3]">WAKTU JEPRET (EXIF):</span>
+                    <span className="text-[#272E3B] text-right">
+                      {selectedReport.date_time_original
+                        ? new Date(selectedReport.date_time_original).toLocaleString('id-ID')
+                        : 'Tidak tersedia'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-[#8E95A3]">WAKTU TERIMA (SERVER):</span>
+                    <span className="text-[#272E3B] text-right">
+                      {new Date(selectedReport.created_at).toLocaleString('id-ID')}
+                    </span>
+                  </div>
                 </div>
               </div>
 

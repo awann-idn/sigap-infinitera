@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { getLaporanList, addLaporan } from '@/lib/db/store';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
+import {
+  calculateHaversineDistance,
+  calculateTingkatKeyakinan,
+} from '@/lib/geo';
 
 async function hasStaffSession(): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
@@ -53,17 +57,42 @@ export async function POST(request: Request) {
       );
     }
 
+    const latGps = Number(body.lat_gps);
+    const lngGps = Number(body.lng_gps);
+    const latExif = body.lat_exif != null ? Number(body.lat_exif) : undefined;
+    const lngExif = body.lng_exif != null ? Number(body.lng_exif) : undefined;
+    const dateTimeOriginal = body.date_time_original || undefined;
+
+    // Calculate distance on server
+    let jarakExifGpsM: number | undefined;
+    if (latExif != null && lngExif != null) {
+      jarakExifGpsM = calculateHaversineDistance(latGps, lngGps, latExif, lngExif);
+    }
+
+    // Calculate tingkat keyakinan on server
+    const serverTimestamp = new Date().toISOString();
+    const { tingkat } = calculateTingkatKeyakinan({
+      gpsLat: latGps,
+      gpsLng: lngGps,
+      exifLat: latExif,
+      exifLng: lngExif,
+      dateTimeOriginal,
+      serverTimestamp,
+    });
+
     const newReport = await addLaporan({
       foto_url: body.foto_url,
-      lat_gps: Number(body.lat_gps),
-      lng_gps: Number(body.lng_gps),
-      lat_exif: body.lat_exif ? Number(body.lat_exif) : undefined,
-      lng_exif: body.lng_exif ? Number(body.lng_exif) : undefined,
-      jarak_exif_gps_m: body.jarak_exif_gps_m ? Number(body.jarak_exif_gps_m) : undefined,
-      flag_manual: Boolean(body.flag_manual),
+      lat_gps: latGps,
+      lng_gps: lngGps,
+      lat_exif: latExif,
+      lng_exif: lngExif,
+      jarak_exif_gps_m: jarakExifGpsM,
+      flag_manual: tingkat !== 'TINGGI',
       wilayah: body.wilayah || 'Wilayah Tidak Teridentifikasi',
       deskripsi: body.deskripsi || '',
       skala: body.skala || 'SEDANG',
+      tingkat_keyakinan: tingkat,
+      date_time_original: dateTimeOriginal,
       status_verifikasi: 'belum-diverifikasi',
       status_penanganan: 'menunggu',
     });

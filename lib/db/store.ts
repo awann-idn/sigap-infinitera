@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { normalizeWilayahCity } from '@/lib/wilayah';
+import type { TingkatKeyakinan } from '@/lib/geo';
 
 export interface LaporanItem {
   id: string;
@@ -14,6 +15,8 @@ export interface LaporanItem {
   wilayah: string;
   deskripsi: string;
   skala: 'KECIL' | 'SEDANG' | 'BESAR';
+  tingkat_keyakinan: TingkatKeyakinan;
+  date_time_original?: string;
   status_verifikasi: 'belum-diverifikasi' | 'terverifikasi' | 'spam';
   status_penanganan: 'menunggu' | 'diproses' | 'selesai';
   petugas_id?: string;
@@ -41,6 +44,8 @@ const INITIAL_SEED: LaporanItem[] = [
     wilayah: 'Kec. Gandus, Kota Palembang, Sumatera Selatan',
     deskripsi: 'Asap tebal membumbung tinggi dari lahan gambut kering di tepi Sungai Musi.',
     skala: 'BESAR',
+    tingkat_keyakinan: 'TINGGI',
+    date_time_original: new Date(Date.now() - 2 * 3600 * 1000 - 5 * 60 * 1000).toISOString(),
     status_verifikasi: 'terverifikasi',
     status_penanganan: 'diproses',
     created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
@@ -59,6 +64,8 @@ const INITIAL_SEED: LaporanItem[] = [
     wilayah: 'Kec. Sukarami, Kota Palembang, Sumatera Selatan',
     deskripsi: 'Api membakar semak dan rerumputan kering dekat permukiman warga.',
     skala: 'SEDANG',
+    tingkat_keyakinan: 'TINJAUAN',
+    date_time_original: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
     status_verifikasi: 'belum-diverifikasi',
     status_penanganan: 'menunggu',
     created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
@@ -73,6 +80,7 @@ const INITIAL_SEED: LaporanItem[] = [
     wilayah: 'Kec. Indralaya, Kab. Ogan Ilir, Sumatera Selatan',
     deskripsi: 'Titik api kecil bekas pembakaran lahan semak yang mulai meluas.',
     skala: 'KECIL',
+    tingkat_keyakinan: 'TINJAUAN',
     status_verifikasi: 'terverifikasi',
     status_penanganan: 'selesai',
     flag_manual: false,

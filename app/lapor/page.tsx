@@ -1,17 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Camera, MapPin, AlertOctagon, CheckCircle2, ShieldCheck, RefreshCw, Aperture } from 'lucide-react';
+import { Camera, MapPin, CheckCircle2, ShieldCheck, RefreshCw, Trash2 } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { Textarea } from '@/components/Input';
 import { Toast } from '@/components/Toast';
 import { parseExifData, ExifData } from '@/lib/exif';
-import { evaluateLocationIntegrity, GeoComparisonResult } from '@/lib/geo';
+import { calculateHaversineDistance } from '@/lib/geo';
 import { reverseGeocode } from '@/lib/wilayah';
-import piexif from 'piexifjs';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
@@ -22,61 +21,6 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ),
 });
 
-function decimalToDmsRational(value: number): number[][] {
-  const absolute = Math.abs(value);
-  const degrees = Math.floor(absolute);
-  const minutesFloat = (absolute - degrees) * 60;
-  const minutes = Math.floor(minutesFloat);
-  const seconds = (minutesFloat - minutes) * 60;
-
-  return [
-    [degrees, 1],
-    [minutes, 1],
-    [Math.round(seconds * 100), 100],
-  ];
-}
-
-function embedGpsExif(jpegDataUrl: string, lat: number, lng: number): string {
-  try {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const dateTimeOriginal = `${now.getFullYear()}:${pad(now.getMonth() + 1)}:${pad(
-      now.getDate()
-    )} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-
-    const exifObject = {
-      '0th': {
-        [piexif.ImageIFD.Make]: 'SIGAP',
-        [piexif.ImageIFD.Model]: 'SIGAP Web Camera',
-        [piexif.ImageIFD.Software]: 'SIGAP Infinitera',
-      },
-      Exif: {
-        [piexif.ExifIFD.DateTimeOriginal]: dateTimeOriginal,
-      },
-      GPS: {
-        [piexif.GPSIFD.GPSVersionID]: [2, 3, 0, 0],
-        [piexif.GPSIFD.GPSMapDatum]: 'WGS-84',
-        [piexif.GPSIFD.GPSLatitudeRef]: lat >= 0 ? 'N' : 'S',
-        [piexif.GPSIFD.GPSLatitude]: decimalToDmsRational(lat),
-        [piexif.GPSIFD.GPSLongitudeRef]: lng >= 0 ? 'E' : 'W',
-        [piexif.GPSIFD.GPSLongitude]: decimalToDmsRational(lng),
-      },
-    };
-
-    const exifBytes = piexif.dump(exifObject);
-    return piexif.insert(exifBytes, jpegDataUrl);
-  } catch (error) {
-    console.warn('Gagal menyisipkan GPS EXIF ke foto:', error);
-    return jpegDataUrl;
-  }
-}
-
-async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return new File([blob], filename, { type: 'image/jpeg' });
-}
-
 export default function LaporPage() {
   const [file, setFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -86,37 +30,15 @@ export default function LaporPage() {
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [gpsStatus, setGpsStatus] = useState<'IDLE' | 'FETCHING' | 'SUCCESS' | 'DENIED'>('IDLE');
 
-  const [geoIntegrity, setGeoIntegrity] = useState<GeoComparisonResult | null>(null);
   const [wilayah, setWilayah] = useState<string>('');
-
   const [deskripsi, setDeskripsi] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ msg: string; idCode?: string; type?: 'success' | 'error' } | null>(null);
   const [submittedReport, setSubmittedReport] = useState<any | null>(null);
 
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
   useEffect(() => {
     requestBrowserLocation();
-  }, []);
-
-  useEffect(() => {
-    if (cameraActive && videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(() => {});
-    }
-  }, [cameraActive]);
-
-  useEffect(() => {
-    return () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-    };
   }, []);
 
   const requestBrowserLocation = () => {
@@ -136,11 +58,6 @@ export default function LaporPage() {
 
         const regionName = await reverseGeocode(lat, lng);
         setWilayah(regionName);
-
-        if (exifInfo?.latitude && exifInfo?.longitude) {
-          const check = evaluateLocationIntegrity(lat, lng, exifInfo.latitude, exifInfo.longitude);
-          setGeoIntegrity(check);
-        }
       },
       (err) => {
         console.warn('Geolocation denied or failed:', err);
@@ -153,77 +70,28 @@ export default function LaporPage() {
     );
   };
 
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    setCameraActive(false);
-  };
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
 
-  const startCamera = async () => {
-    setCameraError(null);
+    setFile(selectedFile);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Perangkat ini tidak mendukung akses kamera langsung.');
-      return;
-    }
+    // Read file for preview
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPhotoPreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(selectedFile);
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      setCameraActive(true);
-    } catch (err) {
-      console.warn('Camera access failed:', err);
-      setCameraError('Akses kamera ditolak atau tidak tersedia. Izinkan kamera lalu coba lagi.');
-    }
-  };
-
-  const capturePhoto = async () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, width, height);
-
-    let capturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-    if (gpsLat !== null && gpsLng !== null) {
-      capturedDataUrl = embedGpsExif(capturedDataUrl, gpsLat, gpsLng);
-    }
-
-    setPhotoPreview(capturedDataUrl);
-
-    const captured = await dataUrlToFile(capturedDataUrl, `sigap-${Date.now()}.jpg`);
-    setFile(captured);
-
-    const parsed = await parseExifData(captured);
+    // Parse EXIF from original file (no canvas re-render)
+    const parsed = await parseExifData(selectedFile);
     setExifInfo(parsed);
-
-    if (gpsLat !== null && gpsLng !== null && parsed.latitude && parsed.longitude) {
-      const check = evaluateLocationIntegrity(gpsLat, gpsLng, parsed.latitude, parsed.longitude);
-      setGeoIntegrity(check);
-    } else {
-      setGeoIntegrity(null);
-    }
-
-    stopCamera();
   };
 
-  const retakePhoto = () => {
+  const clearPhoto = () => {
     setFile(null);
     setPhotoPreview(null);
     setExifInfo(null);
-    setGeoIntegrity(null);
-    startCamera();
   };
 
   const handlePinDragEnd = async (lat: number, lng: number) => {
@@ -231,12 +99,16 @@ export default function LaporPage() {
     setGpsLng(lng);
     const regionName = await reverseGeocode(lat, lng);
     setWilayah(regionName);
-
-    if (exifInfo?.latitude && exifInfo?.longitude) {
-      const check = evaluateLocationIntegrity(lat, lng, exifInfo.latitude, exifInfo.longitude);
-      setGeoIntegrity(check);
-    }
   };
+
+  // Calculate distance for preview display
+  const previewDistance =
+    gpsLat !== null &&
+    gpsLng !== null &&
+    exifInfo?.latitude != null &&
+    exifInfo?.longitude != null
+      ? calculateHaversineDistance(gpsLat, gpsLng, exifInfo.latitude, exifInfo.longitude)
+      : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,14 +127,13 @@ export default function LaporPage() {
         foto_url: mockPhotoUrl,
         lat_gps: gpsLat,
         lng_gps: gpsLng,
-        lat_exif: exifInfo?.latitude,
-        lng_exif: exifInfo?.longitude,
-        jarak_exif_gps_m: geoIntegrity?.distanceMeters ?? undefined,
-        flag_manual: geoIntegrity?.flagManualVerification || gpsStatus === 'DENIED',
+        // EXIF values come ONLY from the photo, never from browser GPS
+        lat_exif: exifInfo?.latitude ?? null,
+        lng_exif: exifInfo?.longitude ?? null,
+        date_time_original: exifInfo?.dateTimeOriginal ?? null,
         wilayah: wilayah || `${gpsLat.toFixed(4)}, ${gpsLng.toFixed(4)}`,
         deskripsi,
-        status_verifikasi: 'belum-diverifikasi',
-        status_penanganan: 'menunggu',
+        // Server calculates: jarak_exif_gps_m, tingkat_keyakinan, flag_manual
       };
 
       const res = await fetch('/api/laporan', {
@@ -298,7 +169,7 @@ export default function LaporPage() {
           eyebrow="FORM PELAPORAN DARURAT"
           counter="SINGLE-PAGE FLOW"
           title="LAPOR TITIK KEBAKARAN LAHAN"
-          description="Ambil foto langsung dari kamera; koordinat presisi terisi otomatis. Laporan masuk ke dashboard petugas dan baru tampil di peta publik setelah diverifikasi."
+          description="Ambil foto langsung dari kamera perangkat; koordinat presisi terisi otomatis. Laporan masuk ke dashboard petugas dan baru tampil di peta publik setelah diverifikasi."
         />
 
         {submittedReport ? (
@@ -328,6 +199,10 @@ export default function LaporPage() {
                 <span className="text-[#8E95A3]">KOORDINAT GPS:</span>
                 <span className="text-[#800020]">{submittedReport.lat_gps}, {submittedReport.lng_gps}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-[#8E95A3]">TINGKAT KEYAKINAN:</span>
+                <span className="text-[#800020] font-bold">{submittedReport.tingkat_keyakinan}</span>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full pt-4">
@@ -339,9 +214,7 @@ export default function LaporPage() {
                   setFile(null);
                   setPhotoPreview(null);
                   setExifInfo(null);
-                  setGeoIntegrity(null);
                   setDeskripsi('');
-                  stopCamera();
                 }}
               >
                 BUAT LAPORAN BARU
@@ -355,18 +228,18 @@ export default function LaporPage() {
           </Card>
         ) : (
           <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            {/* Left Column: Live Camera Capture & EXIF check */}
+            {/* Left Column: Photo Capture & EXIF check */}
             <div className="lg:col-span-5 flex flex-col gap-6">
               <div className="flex flex-col gap-2">
                 <label className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#000000] font-bold flex items-center gap-2">
                   <Camera className="w-4 h-4 text-[#000000]" /> 1. AMBIL FOTO LANGSUNG (KAMERA)
                 </label>
                 <span className="font-body text-[14px] text-[#272E3B] font-medium">
-                  Foto wajib diambil langsung dari kamera perangkat saat kejadian. Tidak tersedia unggah berkas dari galeri.
+                  Foto wajib diambil langsung dari kamera perangkat saat kejadian. Metadata EXIF asli akan dibaca otomatis.
                 </span>
               </div>
 
-              {/* Live Camera Capture */}
+              {/* Native File Input for Camera Capture */}
               <div
                 className={`w-full aspect-[4/3] bg-[#FFFFFF] border-2 border-dashed ${
                   photoPreview ? 'border-[#000000]' : 'border-[#000000]/40'
@@ -382,60 +255,41 @@ export default function LaporPage() {
                     <div className="absolute inset-x-0 bottom-0 bg-[#000000]/85 p-3 flex items-center justify-center">
                       <button
                         type="button"
-                        onClick={retakePhoto}
+                        onClick={clearPhoto}
                         className="font-mono text-[12px] uppercase text-[#FFFFFF] font-bold flex items-center gap-2 hover:underline"
                       >
-                        <RefreshCw className="w-4 h-4 text-[#FFFFFF]" /> AMBIL ULANG FOTO
+                        <Trash2 className="w-4 h-4 text-[#FFFFFF]" /> HAPUS & AMBIL ULANG
                       </button>
                     </div>
-                  </>
-                ) : cameraActive ? (
-                  <>
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover bg-[#000000]"
-                    />
-                    <button
-                      type="button"
-                      onClick={capturePhoto}
-                      className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[48px] px-6 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold flex items-center gap-2 hover:bg-[#272E3B] transition-colors"
-                    >
-                      <Aperture className="w-4 h-4 text-[#FFFFFF]" /> JEPRET FOTO
-                    </button>
                   </>
                 ) : (
                   <div className="flex flex-col items-center text-center gap-3 p-6">
                     <div className="w-12 h-12 bg-[#FFF9F2] border border-[#000000] flex items-center justify-center text-[#000000]">
                       <Camera className="w-5 h-5 text-[#000000]" />
                     </div>
-                    <button
-                      type="button"
-                      onClick={startCamera}
-                      className="h-[44px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold hover:bg-[#272E3B] transition-colors"
-                    >
-                      AKTIFKAN KAMERA
-                    </button>
+                    <label className="h-[44px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold hover:bg-[#272E3B] transition-colors cursor-pointer inline-flex items-center justify-center">
+                      AMBIL FOTO DARI KAMERA
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
                     <span className="font-mono text-[11px] text-[#272E3B] font-bold">
-                      IZINKAN AKSES KAMERA SAAT DIMINTA BROWSER
+                      KAMERA BELAKANG AKAN TERBUKA OTOMATIS
                     </span>
-                    {cameraError && (
-                      <span className="font-mono text-[11px] text-[#DC2626] font-bold">{cameraError}</span>
-                    )}
                   </div>
                 )}
               </div>
-
-              <canvas ref={canvasRef} className="hidden" />
 
               {/* EXIF Metadata Card */}
               {exifInfo && (
                 <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-2 font-mono text-[11px]">
                   <div className="flex justify-between items-center text-[#000000] font-bold pb-2 border-b border-[#000000]">
                     <span>METADATA FOTO EXIF</span>
-                    <span>{exifInfo.hasGps ? 'GPS TERSEDIA' : 'TIDAK ADA GPS METADATA'}</span>
+                    <span>{exifInfo.hasGps ? 'GPS TERSEDIA' : 'TIDAK ADA GPS EXIF'}</span>
                   </div>
                   {exifInfo.hasGps ? (
                     <div className="flex flex-col gap-1 text-[#000000] pt-1 font-bold">
@@ -444,9 +298,28 @@ export default function LaporPage() {
                     </div>
                   ) : (
                     <div className="text-[#272E3B] pt-1 font-medium">
-                      Koordinat GPS browser belum tersedia saat foto diambil. Izinkan lokasi lalu ambil ulang foto.
+                      Foto tidak mengandung koordinat GPS EXIF. Lokasi akan divalidasi dari GPS browser saja.
                     </div>
                   )}
+                  {exifInfo.dateTimeOriginal && (
+                    <div className="text-[#525866] pt-1 border-t border-[#000000]/20 mt-1">
+                      WAKTU JEPRET: {new Date(exifInfo.dateTimeOriginal).toLocaleString('id-ID')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Distance Preview (client-side) */}
+              {file && gpsLat !== null && gpsLng !== null && (
+                <div className="p-4 bg-[#FFFFFF] border-2 border-[#000000] font-mono text-[11px] flex flex-col gap-1">
+                  <div className="font-bold uppercase text-[#000000]">
+                    SELISIH GPS BROWSER VS EXIF FOTO
+                  </div>
+                  <div className="text-[#272E3B] font-medium">
+                    {previewDistance !== null
+                      ? `${previewDistance} meter`
+                      : 'EXIF tidak tersedia'}
+                  </div>
                 </div>
               )}
             </div>
@@ -472,21 +345,6 @@ export default function LaporPage() {
                     Wilayah: <span className="text-[#800020] font-mono font-bold">{wilayah || 'Mendeteksi alamat...'}</span>
                   </div>
                 </div>
-
-                {/* Geo Integrity Warning */}
-                {geoIntegrity && (
-                  <div className="p-4 bg-[#FFFFFF] border-2 border-[#000000] font-mono text-[11px] flex items-start gap-3 text-[#000000]">
-                    <AlertOctagon className="w-5 h-5 shrink-0 mt-0.5 text-[#000000]" />
-                    <div>
-                      <div className="font-bold uppercase">
-                        {geoIntegrity.flagManualVerification
-                          ? 'FLAG: PERLU VERIFIKASI MANUAL (>500M)'
-                          : 'INTEGRITAS LOKASI VALID'}
-                      </div>
-                      <div className="text-[#272E3B] font-medium">{geoIntegrity.reason}</div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Fallback Draggable Pin Map */}
                 {gpsStatus === 'DENIED' && gpsLat !== null && gpsLng !== null && (

@@ -26,36 +26,114 @@ function toRad(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-export const EXIF_FLAG_THRESHOLD_METERS = 500;
+// --- Tingkat Keyakinan System ---
 
-export interface GeoComparisonResult {
-  distanceMeters: number | null;
-  flagManualVerification: boolean;
+export type TingkatKeyakinan = 'TINGGI' | 'TINJAUAN' | 'CURIGA';
+
+export interface TingkatKeyakinanParams {
+  /** GPS latitude from browser */
+  gpsLat: number;
+  /** GPS longitude from browser */
+  gpsLng: number;
+  /** EXIF latitude from photo (null if not available) */
+  exifLat?: number | null;
+  /** EXIF longitude from photo (null if not available) */
+  exifLng?: number | null;
+  /** DateTimeOriginal from EXIF as ISO string (null if not available) */
+  dateTimeOriginal?: string | null;
+  /** Server timestamp when the report is received (ISO string) */
+  serverTimestamp?: string;
+}
+
+export interface TingkatKeyakinanResult {
+  tingkat: TingkatKeyakinan;
+  jarakMeter: number | null;
   reason: string;
 }
 
-export function evaluateLocationIntegrity(
-  gpsLat: number,
-  gpsLng: number,
-  exifLat?: number,
-  exifLng?: number
-): GeoComparisonResult {
-  if (exifLat === undefined || exifLng === undefined) {
+/**
+ * Calculates the confidence level (tingkat keyakinan) for a report.
+ *
+ * - TINGGI   : EXIF GPS exists AND distance < 100m
+ * - TINJAUAN : EXIF GPS exists but distance 100m–5km, OR EXIF without GPS
+ * - CURIGA   : distance > 5km, OR DateTimeOriginal differs > 2h from server time
+ */
+export function calculateTingkatKeyakinan(
+  params: TingkatKeyakinanParams
+): TingkatKeyakinanResult {
+  const {
+    gpsLat,
+    gpsLng,
+    exifLat,
+    exifLng,
+    dateTimeOriginal,
+    serverTimestamp,
+  } = params;
+
+  const serverTime = serverTimestamp ? new Date(serverTimestamp) : new Date();
+
+  // Check DateTimeOriginal age
+  let dateTimeTooOld = false;
+  if (dateTimeOriginal) {
+    const exifTime = new Date(dateTimeOriginal);
+    const diffMs = Math.abs(serverTime.getTime() - exifTime.getTime());
+    const diffHours = diffMs / (1000 * 60 * 60);
+    if (diffHours > 2) {
+      dateTimeTooOld = true;
+    }
+  }
+
+  // No EXIF GPS available
+  if (exifLat == null || exifLng == null) {
+    // EXIF without GPS → TINJAUAN (unless dateTime is too old → CURIGA)
+    if (dateTimeTooOld) {
+      return {
+        tingkat: 'CURIGA',
+        jarakMeter: null,
+        reason: 'EXIF tanpa GPS dan waktu jepret berbeda > 2 jam dari waktu server',
+      };
+    }
     return {
-      distanceMeters: null,
-      flagManualVerification: false,
-      reason: 'Foto tidak mengandung metadata GPS EXIF',
+      tingkat: 'TINJAUAN',
+      jarakMeter: null,
+      reason: 'Foto tidak mengandung koordinat GPS EXIF, perlu tinjauan manual',
     };
   }
 
+  // EXIF GPS available — calculate distance
   const distance = calculateHaversineDistance(gpsLat, gpsLng, exifLat, exifLng);
-  const isFlagged = distance > EXIF_FLAG_THRESHOLD_METERS;
 
+  // DateTimeOriginal too old → CURIGA regardless of distance
+  if (dateTimeTooOld) {
+    return {
+      tingkat: 'CURIGA',
+      jarakMeter: distance,
+      reason: `Waktu jepret EXIF berbeda > 2 jam dari waktu server (selisih GPS: ${distance}m)`,
+    };
+  }
+
+  // Distance > 5km → CURIGA
+  if (distance > 5000) {
+    return {
+      tingkat: 'CURIGA',
+      jarakMeter: distance,
+      reason: `Selisih lokasi GPS & EXIF (${distance}m) melebihi 5 km`,
+    };
+  }
+
+  // Distance 100m–5km → TINJAUAN
+  if (distance >= 100) {
+    return {
+      tingkat: 'TINJAUAN',
+      jarakMeter: distance,
+      reason: `Selisih lokasi GPS & EXIF (${distance}m) antara 100m–5km, perlu tinjauan`,
+    };
+  }
+
+  // Distance < 100m → TINGGI
   return {
-    distanceMeters: distance,
-    flagManualVerification: isFlagged,
-    reason: isFlagged
-      ? `Selisih lokasi GPS & EXIF (${distance}m) melebihi ambang batas ${EXIF_FLAG_THRESHOLD_METERS}m`
-      : `Lokasi GPS & EXIF cocok (selisih ${distance}m)`,
+    tingkat: 'TINGGI',
+    jarakMeter: distance,
+    reason: `Lokasi GPS & EXIF cocok (selisih ${distance}m < 100m)`,
   };
 }

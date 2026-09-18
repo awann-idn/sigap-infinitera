@@ -4,7 +4,7 @@ export type StatusVerifikasi = 'belum-diverifikasi' | 'terverifikasi' | 'spam';
 export type StatusPenanganan = 'menunggu' | 'diproses' | 'selesai';
 
 interface BadgeProps {
-  type?: 'verifikasi' | 'penanganan' | 'skala';
+  type?: 'verifikasi' | 'penanganan' | 'skala' | 'keyakinan';
   value: string;
   isDashboard?: boolean;
   className?: string;
@@ -62,6 +62,23 @@ export function Badge({ type = 'verifikasi', value, isDashboard = false, classNa
   } else if (type === 'skala') {
     colorStyle = 'text-[#000000] border-[#000000] bg-[#FFF9F2] font-bold';
     label = value.toUpperCase();
+  } else if (type === 'keyakinan') {
+    switch (value.toUpperCase()) {
+      case 'TINGGI':
+        colorStyle = 'text-[#15803D] border-[#15803D] bg-[#15803D]/10 font-bold';
+        label = 'TINGGI';
+        break;
+      case 'TINJAUAN':
+        colorStyle = 'text-[#A16207] border-[#A16207] bg-[#A16207]/10 font-bold';
+        label = 'TINJAUAN';
+        break;
+      case 'CURIGA':
+        colorStyle = 'text-[#B91C1C] border-[#B91C1C] bg-[#B91C1C]/10 font-bold';
+        label = 'CURIGA';
+        break;
+      default:
+        label = value.toUpperCase();
+    }
   }
 
   return (

@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.laporan (
   wilayah VARCHAR(255) NOT NULL,
   deskripsi TEXT,
   skala VARCHAR(20) NOT NULL CHECK (skala IN ('KECIL', 'SEDANG', 'BESAR')),
+  tingkat_keyakinan VARCHAR(20) NOT NULL DEFAULT 'TINJAUAN' CHECK (tingkat_keyakinan IN ('TINGGI', 'TINJAUAN', 'CURIGA')),
+  date_time_original TIMESTAMPTZ,
   status_verifikasi VARCHAR(30) NOT NULL DEFAULT 'belum-diverifikasi' CHECK (status_verifikasi IN ('belum-diverifikasi', 'terverifikasi', 'spam')),
   status_penanganan VARCHAR(30) NOT NULL DEFAULT 'menunggu' CHECK (status_penanganan IN ('menunggu', 'diproses', 'selesai')),
   petugas_id UUID,
@@ -84,7 +86,7 @@ VALUES
   ('a0000000-0000-0000-0000-000000000001', 'Komandan Budi Santoso', 'petugas@sigap.go.id', 'Manggala Agni / BPBD Sumatera Selatan', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO public.laporan (id, kode, foto_url, lat_gps, lng_gps, lat_exif, lng_exif, jarak_exif_gps_m, flag_manual, wilayah, deskripsi, skala, status_verifikasi, status_penanganan, created_at)
+INSERT INTO public.laporan (id, kode, foto_url, lat_gps, lng_gps, lat_exif, lng_exif, jarak_exif_gps_m, flag_manual, wilayah, deskripsi, skala, tingkat_keyakinan, date_time_original, status_verifikasi, status_penanganan, created_at)
 VALUES
   (
     'c0000000-0000-0000-0000-000000000001',
@@ -99,6 +101,8 @@ VALUES
     'Kec. Gandus, Kota Palembang, Sumatera Selatan',
     'Terlihat asap tebal membumbung tinggi dari lahan gambut kering tepi Sungai Musi.',
     'BESAR',
+    'TINGGI',
+    NOW() - INTERVAL '2 hours 5 minutes',
     'terverifikasi',
     'diproses',
     NOW() - INTERVAL '2 hours'
@@ -116,6 +120,8 @@ VALUES
     'Kec. Sukarami, Kota Palembang, Sumatera Selatan',
     'Kebakaran rerumputan dan semak kering dekat permukiman warga.',
     'SEDANG',
+    'TINJAUAN',
+    NOW() - INTERVAL '50 minutes',
     'belum-diverifikasi',
     'menunggu',
     NOW() - INTERVAL '45 minutes'
@@ -133,6 +139,8 @@ VALUES
     'Kec. Indralaya, Kab. Ogan Ilir, Sumatera Selatan',
     'Titik api kecil bekas pembakaran lahan semak yang mulai meluas.',
     'KECIL',
+    'TINJAUAN',
+    NULL,
     'terverifikasi',
     'selesai',
     NOW() - INTERVAL '24 hours'
