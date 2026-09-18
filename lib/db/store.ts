@@ -21,8 +21,8 @@ export interface LaporanItem {
 }
 
 export interface StatisticsData {
-  totalLaporan: number;
-  terverifikasi: number;
+  totalTerverifikasi: number;
+  penangananSelesai: number;
   wilayahTerbanyak: string;
 }
 
@@ -93,15 +93,24 @@ function getSupabase(): SupabaseClient | null {
   return null;
 }
 
-export async function getLaporanList(): Promise<LaporanItem[]> {
+export interface LaporanQueryOptions {
+  onlyVerified?: boolean;
+}
+
+export async function getLaporanList(options: LaporanQueryOptions = {}): Promise<LaporanItem[]> {
+  const { onlyVerified = false } = options;
   const supabase = getSupabase();
 
   if (supabase) {
     try {
-      const { data, error } = await supabase
+      const baseQuery = supabase
         .from('laporan')
         .select('*')
         .order('created_at', { ascending: false });
+
+      const { data, error } = onlyVerified
+        ? await baseQuery.eq('status_verifikasi', 'terverifikasi')
+        : await baseQuery;
 
       if (!error && data) {
         return data as LaporanItem[];
@@ -113,7 +122,9 @@ export async function getLaporanList(): Promise<LaporanItem[]> {
     }
   }
 
-  return memoryStore;
+  return onlyVerified
+    ? memoryStore.filter((item) => item.status_verifikasi === 'terverifikasi')
+    : memoryStore;
 }
 
 export async function addLaporan(
@@ -187,8 +198,8 @@ export async function updateLaporanStatus(
 }
 
 export async function getStatistics(): Promise<StatisticsData> {
-  const list = await getLaporanList();
-  const terverifikasi = list.filter((item) => item.status_verifikasi === 'terverifikasi').length;
+  const list = await getLaporanList({ onlyVerified: true });
+  const penangananSelesai = list.filter((item) => item.status_penanganan === 'selesai').length;
 
   const regionCounts: Record<string, number> = {};
   list.forEach((item) => {
@@ -206,8 +217,8 @@ export async function getStatistics(): Promise<StatisticsData> {
   });
 
   return {
-    totalLaporan: list.length,
-    terverifikasi,
+    totalTerverifikasi: list.length,
+    penangananSelesai,
     wilayahTerbanyak: topRegion,
   };
 }

@@ -2,16 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ShieldCheck } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 import Card from '@/components/Card';
-import { Badge } from '@/components/Badge';
 import { LaporanItem } from '@/lib/db/store';
 
 const LeafletMap = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full min-h-[500px] bg-[#800020] border border-[#800020] flex items-center justify-center font-mono text-[11px] text-[#8E95A3]">
+    <div className="w-full h-full min-h-[500px] bg-[#800020] border border-[#5C0016] flex items-center justify-center font-mono text-[11px] text-[#E8C9CF]">
       MEMUAT INTERACTIVE MAP LEAFLET...
     </div>
   ),
@@ -20,14 +19,12 @@ const LeafletMap = dynamic(() => import('@/components/map/MapContainer'), {
 export default function PetaPage() {
   const [reports, setReports] = useState<LaporanItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [statusFilter, setStatusFilter] = useState<'SEMUA' | 'terverifikasi' | 'belum-diverifikasi'>('SEMUA');
-  const [skalaFilter, setSkalaFilter] = useState<'SEMUA' | 'BESAR' | 'SEDANG' | 'KECIL'>('SEMUA');
   const [selectedReport, setSelectedReport] = useState<LaporanItem | null>(null);
 
   const fetchReports = async () => {
     setLoading(true);
     try {
+      // Public endpoint: only verified reports are returned.
       const res = await fetch('/api/laporan');
       const json = await res.json();
       if (json.data) {
@@ -44,62 +41,21 @@ export default function PetaPage() {
     fetchReports();
   }, []);
 
-  const filteredReports = reports.filter((r) => {
-    if (statusFilter !== 'SEMUA' && r.status_verifikasi !== statusFilter) return false;
-    if (skalaFilter !== 'SEMUA' && r.skala !== skalaFilter) return false;
-    return true;
-  });
-
   return (
     <div className="w-full flex flex-col flex-1 py-10">
       <div className="max-w-[1440px] mx-auto px-5 lg:px-10 w-full flex-1 flex flex-col">
         <SectionHeader
           eyebrow="PETA SEBARAN REAL-TIME"
-          counter={`MARKER: ${filteredReports.length}`}
+          counter={`MARKER: ${reports.length}`}
           title="PETA SEBARAN TITIK KEBAKARAN LAHAN"
-          description="Pemantauan sebaran lokasi titik api real-time hasil aduan masyarakat terkonfirmasi."
+          description="Pemantauan sebaran lokasi titik api (wilayah Sumatera Selatan) yang telah diverifikasi oleh petugas."
         />
 
-        {/* Filter Bar */}
+        {/* Info Bar */}
         <div className="w-full bg-[#FFFFFF] border border-[#D0D5DD] p-4 mb-6 flex flex-wrap items-center justify-between gap-4 font-mono text-[12px]">
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-[#8E95A3] uppercase">STATUS:</span>
-              <div className="flex items-center gap-1">
-                {(['SEMUA', 'terverifikasi', 'belum-diverifikasi'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setStatusFilter(s)}
-                    className={`px-3 py-1 uppercase text-[11px] border transition-colors ${
-                      statusFilter === s
-                        ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
-                        : 'bg-[#FFF9F2] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[#8E95A3] uppercase">SKALA:</span>
-              <div className="flex items-center gap-1">
-                {(['SEMUA', 'BESAR', 'SEDANG', 'KECIL'] as const).map((sk) => (
-                  <button
-                    key={sk}
-                    onClick={() => setSkalaFilter(sk)}
-                    className={`px-3 py-1 uppercase text-[11px] border transition-colors ${
-                      skalaFilter === sk
-                        ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
-                        : 'bg-[#FFF9F2] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
-                    }`}
-                  >
-                    {sk}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="flex items-center gap-2 text-[#525866]">
+            <ShieldCheck className="w-4 h-4 text-[#15803D]" />
+            <span className="uppercase font-bold">Hanya menampilkan laporan terverifikasi petugas</span>
           </div>
 
           <button
@@ -110,11 +66,11 @@ export default function PetaPage() {
           </button>
         </div>
 
-        {/* Map Layout - Dark Software Telemetry Panel Matching Screenshot */}
+        {/* Map Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-[550px]">
           <div className="lg:col-span-8 w-full h-[550px] relative border border-[#800020] bg-[#800020]">
             <LeafletMap
-              reports={filteredReports}
+              reports={reports}
               onSelectReport={(report) => setSelectedReport(report)}
             />
           </div>
@@ -123,19 +79,19 @@ export default function PetaPage() {
           <div className="lg:col-span-4 flex flex-col gap-4 max-h-[550px] overflow-y-auto pr-1">
             <div className="font-mono text-[11px] text-[#8E95A3] uppercase tracking-[0.08em] pb-2 border-b border-[#D0D5DD] flex justify-between">
               <span>LIST LAPORAN TERLOKASI</span>
-              <span>{filteredReports.length} TITIK</span>
+              <span>{reports.length} TITIK</span>
             </div>
 
             {loading ? (
               <div className="p-8 text-center font-mono text-[12px] text-[#8E95A3] animate-pulse">
                 MEMUAT DATA TITIK API...
               </div>
-            ) : filteredReports.length === 0 ? (
+            ) : reports.length === 0 ? (
               <div className="p-8 text-center font-mono text-[12px] text-[#8E95A3] bg-[#FFFFFF] border border-[#D0D5DD]">
-                TIDAK ADA LAPORAN SESUAI FILTER
+                BELUM ADA LAPORAN TERVERIFIKASI
               </div>
             ) : (
-              filteredReports.map((report) => (
+              reports.map((report) => (
                 <Card
                   key={report.id}
                   onClick={() => setSelectedReport(report)}
@@ -150,14 +106,15 @@ export default function PetaPage() {
                       <span className="font-mono text-[12px] text-[#800020] font-bold">
                         {report.kode}
                       </span>
-                      <Badge type="verifikasi" value={report.status_verifikasi} isDashboard={false} />
+                      <span className="font-mono text-[10px] uppercase text-[#15803D] font-bold">
+                        Terverifikasi
+                      </span>
                     </div>
                     <h4 className="font-display font-bold text-[16px] text-[#800020] leading-snug">
                       {report.wilayah}
                     </h4>
-                    <div className="flex items-center justify-between font-mono text-[11px] text-[#525866] pt-2 border-t border-[#D0D5DD]">
-                      <span>SKALA: <span className="text-[#800020] font-bold">{report.skala}</span></span>
-                      <span className="text-[#8E95A3]">{new Date(report.created_at).toLocaleDateString('id-ID')}</span>
+                    <div className="flex items-center justify-end font-mono text-[11px] text-[#8E95A3] pt-2 border-t border-[#D0D5DD]">
+                      <span>{new Date(report.created_at).toLocaleDateString('id-ID')}</span>
                     </div>
                   </div>
                 </Card>

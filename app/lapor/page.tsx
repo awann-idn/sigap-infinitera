@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Camera, MapPin, AlertOctagon, CheckCircle2, ShieldCheck, Flame, RefreshCw, Aperture } from 'lucide-react';
+import { Camera, MapPin, AlertOctagon, CheckCircle2, ShieldCheck, RefreshCw, Aperture } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -90,7 +90,6 @@ export default function LaporPage() {
   const [wilayah, setWilayah] = useState<string>('');
 
   const [deskripsi, setDeskripsi] = useState('');
-  const [skala, setSkala] = useState<'KECIL' | 'SEDANG' | 'BESAR'>('SEDANG');
 
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ msg: string; idCode?: string; type?: 'success' | 'error' } | null>(null);
@@ -262,7 +261,6 @@ export default function LaporPage() {
         flag_manual: geoIntegrity?.flagManualVerification || gpsStatus === 'DENIED',
         wilayah: wilayah || `${gpsLat.toFixed(4)}, ${gpsLng.toFixed(4)}`,
         deskripsi,
-        skala,
         status_verifikasi: 'belum-diverifikasi',
         status_penanganan: 'menunggu',
       };
@@ -300,7 +298,7 @@ export default function LaporPage() {
           eyebrow="FORM PELAPORAN DARURAT"
           counter="SINGLE-PAGE FLOW"
           title="LAPOR TITIK KEBAKARAN LAHAN"
-          description="Submit foto lokasi kejadian dan koordinat presisi. Laporan akan langsung dikirim ke dashboard piket pemadam kebakaran setempat."
+          description="Ambil foto langsung dari kamera; koordinat presisi terisi otomatis. Laporan masuk ke dashboard petugas dan baru tampil di peta publik setelah diverifikasi."
         />
 
         {submittedReport ? (
@@ -325,10 +323,6 @@ export default function LaporPage() {
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">WILAYAH:</span>
                 <span className="text-[#800020] font-bold">{submittedReport.wilayah}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#8E95A3]">SKALA KEBAKARAN:</span>
-                <span className="text-[#800020] font-bold">{submittedReport.skala}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">KOORDINAT GPS:</span>
@@ -534,32 +528,10 @@ export default function LaporPage() {
                 )}
               </div>
 
-              {/* Step 3: Fire Scale & Description */}
+              {/* Step 3: Description */}
               <div className="flex flex-col gap-6">
-                <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#525866] font-bold flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-[#800020]" /> 3. SKALA KEBAKARAN
-                  </label>
-                  <div className="grid grid-cols-3 gap-4">
-                    {(['KECIL', 'SEDANG', 'BESAR'] as const).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setSkala(s)}
-                        className={`h-[48px] font-mono text-[13px] uppercase tracking-[0.06em] border font-bold transition-all ${
-                          skala === s
-                            ? 'bg-[#800020] text-[#FFFFFF] border-[#800020]'
-                            : 'bg-[#FFFFFF] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <Textarea
-                  label="4. DESKRIPSI SINGKAT KONDISI LAPANGAN (OPSIONAL)"
+                  label="3. DESKRIPSI SINGKAT KONDISI LAPANGAN (OPSIONAL)"
                   placeholder="Contoh: Asap tebal mengarah ke pemukiman RT 04, luas perkiraan 2 hektar gambut kering."
                   value={deskripsi}
                   onChange={(e) => setDeskripsi(e.target.value)}

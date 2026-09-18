@@ -1,9 +1,35 @@
 import { NextResponse } from 'next/server';
 import { getLaporanList, addLaporan } from '@/lib/db/store';
+import { createClient } from '@/lib/supabase/server';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 
-export async function GET() {
+async function hasStaffSession(): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+
   try {
-    const list = await getLaporanList();
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return Boolean(user);
+  } catch {
+    return false;
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const wantsAll = searchParams.get('scope') === 'all';
+
+    // Public endpoint only exposes verified reports. The full list (including
+    // reports still awaiting verification) requires a staff session.
+    let includeUnverified = false;
+    if (wantsAll) {
+      includeUnverified = isSupabaseConfigured() ? await hasStaffSession() : true;
+    }
+
+    const list = await getLaporanList({ onlyVerified: !includeUnverified });
     return NextResponse.json({ success: true, data: list });
   } catch (error: any) {
     return NextResponse.json(

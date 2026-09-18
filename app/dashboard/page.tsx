@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/laporan');
+      const res = await fetch('/api/laporan?scope=all');
       const json = await res.json();
       if (json.data) {
         setReports(json.data);
@@ -183,7 +183,6 @@ export default function DashboardPage() {
                 <th className="p-4">KODE / ID</th>
                 <th className="p-4">WAKTU</th>
                 <th className="p-4">WILAYAH</th>
-                <th className="p-4">SKALA</th>
                 <th className="p-4">VERIFIKASI</th>
                 <th className="p-4">PENANGANAN</th>
                 <th className="p-4 text-right">AKSI</th>
@@ -192,13 +191,13 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-[#D0D5DD]">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
+                  <td colSpan={6} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
                     MEMUAT TABLE LAPORAN...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
+                  <td colSpan={6} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
                     TIDAK ADA DATA LAPORAN
                   </td>
                 </tr>
@@ -213,9 +212,6 @@ export default function DashboardPage() {
                     </td>
                     <td className="p-4 font-bold text-[#800020] max-w-[200px] truncate">
                       {item.wilayah}
-                    </td>
-                    <td className="p-4">
-                      <Badge type="skala" value={item.skala} isDashboard={true} />
                     </td>
                     <td className="p-4">
                       <Badge type="verifikasi" value={item.status_verifikasi} isDashboard={true} />

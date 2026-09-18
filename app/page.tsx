@@ -120,25 +120,25 @@ export default async function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-0 divide-y md:divide-y-0 md:divide-x divide-[#C1C7D0]">
             <div className="flex flex-col gap-2 md:px-8 first:pl-0">
               <span className="font-mono text-[11px] tracking-[0.08em] text-[#272E3B] font-bold uppercase">
-                TOTAL LAPORAN MASUK
+                TITIK API TERVERIFIKASI
               </span>
               <span className="font-display font-bold text-[clamp(48px,5vw,72px)] text-[#000000] leading-none">
-                {String(stats.totalLaporan).padStart(3, '0')}
+                {String(stats.totalTerverifikasi).padStart(3, '0')}
               </span>
               <span className="font-body text-[14px] text-[#272E3B]">
-                Laporan aduan masyarakat terdaftar di database.
+                Titik api yang telah diverifikasi petugas di lapangan.
               </span>
             </div>
 
             <div className="flex flex-col gap-2 md:px-8">
               <span className="font-mono text-[11px] tracking-[0.08em] text-[#272E3B] font-bold uppercase">
-                LAPORAN TERVERIFIKASI
+                PENANGANAN SELESAI
               </span>
               <span className="font-display font-bold text-[clamp(48px,5vw,72px)] text-[#000000] leading-none">
-                {String(stats.terverifikasi).padStart(3, '0')}
+                {String(stats.penangananSelesai).padStart(3, '0')}
               </span>
               <span className="font-body text-[14px] text-[#272E3B]">
-                Dikonfirmasi petugas pemadam / BPBD di lapangan.
+                Titik api terverifikasi yang sudah ditangani tim pemadam.
               </span>
             </div>
 

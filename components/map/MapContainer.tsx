@@ -4,6 +4,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LaporanItem } from '@/lib/db/store';
 import 'leaflet/dist/leaflet.css';
 
+export const SOUTH_SUMATRA_BOUNDS: [[number, number], [number, number]] = [
+  [-6.6, 101.0],
+  [-1.5, 107.0],
+];
+
+const DEFAULT_CENTER: [number, number] = [-3.0, 104.5];
+
 interface MapProps {
   reports: LaporanItem[];
   center?: [number, number];
@@ -17,7 +24,7 @@ interface MapProps {
 
 export default function LeafletMapComponent({
   reports,
-  center = [-3.0, 104.5],
+  center = DEFAULT_CENTER,
   zoom = 7,
   interactive = true,
   onSelectReport,
@@ -65,6 +72,9 @@ export default function LeafletMapComponent({
         zoomControl: interactive,
         scrollWheelZoom: interactive,
         dragging: interactive,
+        minZoom: 7,
+        maxBounds: SOUTH_SUMATRA_BOUNDS,
+        maxBoundsViscosity: 1.0,
       }).setView([centerLat, centerLng], zoom);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

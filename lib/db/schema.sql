@@ -89,7 +89,7 @@ VALUES
   (
     'c0000000-0000-0000-0000-000000000001',
     'SIGAP-20260916-001',
-    'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1000&q=80',
+    '/images/karhutla_smoke_forest.png',
     -3.0037,
     104.7060,
     -3.0039,
@@ -106,7 +106,7 @@ VALUES
   (
     'c0000000-0000-0000-0000-000000000002',
     'SIGAP-20260916-002',
-    'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?auto=format&fit=crop&w=1000&q=80',
+    '/images/firefighter_action.png',
     -2.9176,
     104.7063,
     -2.9480,
@@ -123,7 +123,7 @@ VALUES
   (
     'c0000000-0000-0000-0000-000000000003',
     'SIGAP-20260916-003',
-    'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?auto=format&fit=crop&w=1000&q=80',
+    '/images/drone_monitoring.png',
     -3.2456,
     104.6570,
     NULL,
