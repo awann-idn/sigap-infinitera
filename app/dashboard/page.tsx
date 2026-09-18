@@ -328,8 +328,8 @@ export default function DashboardPage() {
             </div>
 
             <div
-              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 flex flex-col gap-5"
-              style={{ maxHeight: 'calc(90vh - 88px)', overflowY: 'auto' }}
+              className="min-h-0 overflow-y-auto overscroll-contain p-5 flex flex-col gap-5"
+              style={{ height: 'calc(90vh - 84px)', maxHeight: 'calc(90vh - 84px)', overflowY: 'scroll' }}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#D0D5DD] overflow-hidden">
@@ -415,6 +415,42 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Hapus */}
+                <div className="pt-3 border-t border-[#D0D5DD]">
+                  {!confirmDelete ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      disabled={busy}
+                      className="font-mono text-[11px] uppercase font-bold text-[#B91C1C] inline-flex items-center gap-1 hover:underline disabled:opacity-40"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus laporan ini
+                    </button>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <span className="font-mono text-[11px] text-[#B91C1C] font-bold uppercase">
+                        Yakin hapus laporan ini?
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDelete}
+                          disabled={busy}
+                          className="h-[38px] px-4 bg-[#B91C1C] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {pending === 'delete' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {pending === 'delete' ? 'MENGHAPUS...' : 'Ya, hapus'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          disabled={busy}
+                          className="h-[38px] px-4 bg-[#FFFFFF] border border-[#D0D5DD] text-[#525866] font-mono text-[11px] uppercase font-bold disabled:opacity-50"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Wilayah + Deskripsi (editable) */}
@@ -484,44 +520,6 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-col gap-4 pt-5 border-t border-[#D0D5DD]">
-                {/* Delete */}
-                <div className="pt-3 border-t border-[#D0D5DD]">
-                  {!confirmDelete ? (
-                    <button
-                      onClick={() => setConfirmDelete(true)}
-                      disabled={busy}
-                      className="font-mono text-[11px] uppercase font-bold text-[#B91C1C] inline-flex items-center gap-1 hover:underline disabled:opacity-40"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Hapus laporan ini
-                    </button>
-                  ) : (
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <span className="font-mono text-[11px] text-[#B91C1C] font-bold uppercase">
-                        Yakin hapus laporan ini?
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleDelete}
-                          disabled={busy}
-                          className="h-[38px] px-4 bg-[#B91C1C] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
-                        >
-                          {pending === 'delete' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                          {pending === 'delete' ? 'MENGHAPUS...' : 'Ya, hapus'}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(false)}
-                          disabled={busy}
-                          className="h-[38px] px-4 bg-[#FFF9F2] border border-[#D0D5DD] text-[#525866] font-mono text-[11px] uppercase font-bold disabled:opacity-50"
-                        >
-                          Batal
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>
