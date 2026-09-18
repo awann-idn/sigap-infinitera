@@ -22,14 +22,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const wantsAll = searchParams.get('scope') === 'all';
 
-    // Public endpoint only exposes verified reports. The full list (including
-    // reports still awaiting verification) requires a staff session.
-    let includeUnverified = false;
+    // Public endpoint only exposes reports that are already verified AND
+    // being handled (diproses/selesai). Reports still "menunggu" penanganan
+    // are not shown publicly. The full list requires a staff session.
+    let includeUnpublished = false;
     if (wantsAll) {
-      includeUnverified = isSupabaseConfigured() ? await hasStaffSession() : true;
+      includeUnpublished = isSupabaseConfigured() ? await hasStaffSession() : true;
     }
 
-    const list = await getLaporanList({ onlyVerified: !includeUnverified });
+    const list = includeUnpublished
+      ? await getLaporanList()
+      : await getLaporanList({ onlyPublished: true });
     return NextResponse.json({ success: true, data: list });
   } catch (error: any) {
     return NextResponse.json(

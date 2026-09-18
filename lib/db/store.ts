@@ -96,10 +96,11 @@ function getSupabase(): SupabaseClient | null {
 
 export interface LaporanQueryOptions {
   onlyVerified?: boolean;
+  onlyPublished?: boolean;
 }
 
 export async function getLaporanList(options: LaporanQueryOptions = {}): Promise<LaporanItem[]> {
-  const { onlyVerified = false } = options;
+  const { onlyVerified = false, onlyPublished = false } = options;
   const supabase = getSupabase();
 
   if (supabase) {
@@ -109,9 +110,16 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
         .select('*')
         .order('created_at', { ascending: false });
 
-      const { data, error } = onlyVerified
-        ? await baseQuery.eq('status_verifikasi', 'terverifikasi')
-        : await baseQuery;
+      let query = baseQuery;
+      if (onlyPublished) {
+        query = query
+          .eq('status_verifikasi', 'terverifikasi')
+          .in('status_penanganan', ['diproses', 'selesai']);
+      } else if (onlyVerified) {
+        query = query.eq('status_verifikasi', 'terverifikasi');
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         return data as LaporanItem[];
@@ -121,6 +129,14 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
     } catch (e) {
       console.warn('Supabase fetch failed, falling back to local store:', e);
     }
+  }
+
+  if (onlyPublished) {
+    return memoryStore.filter(
+      (item) =>
+        item.status_verifikasi === 'terverifikasi' &&
+        item.status_penanganan !== 'menunggu'
+    );
   }
 
   return onlyVerified

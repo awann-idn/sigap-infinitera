@@ -307,10 +307,16 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[9990] bg-[#0F141A]/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
           <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#FFFFFF] border-2 border-[#800020] shadow-2xl">
             {/* Modal header */}
-            <div className="sticky top-0 z-10 bg-[#FFFFFF] flex items-center justify-between gap-3 px-5 py-4 border-b border-[#D0D5DD]">
-              <span className="font-mono text-[13px] text-[#800020] font-bold truncate">
-                DETAIL LAPORAN: {selectedReport.kode}
-              </span>
+            <div className="sticky top-0 z-10 bg-[#FFFFFF] flex items-start justify-between gap-3 px-5 py-4 border-b border-[#D0D5DD]">
+              <div className="flex flex-col gap-2 min-w-0">
+                <span className="font-mono text-[13px] text-[#800020] font-bold truncate">
+                  DETAIL LAPORAN: {selectedReport.kode}
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge type="verifikasi" value={selectedReport.status_verifikasi} isDashboard={true} />
+                  <Badge type="penanganan" value={selectedReport.status_penanganan} isDashboard={true} />
+                </div>
+              </div>
               <button
                 onClick={closeModal}
                 disabled={busy}
@@ -422,7 +428,13 @@ export default function DashboardPage() {
 
               {/* Actions */}
               <div className="flex flex-col gap-4 pt-5 border-t border-[#D0D5DD]">
-                <div className="font-mono text-[11px] text-[#8E95A3] uppercase">Aksi Verifikasi Petugas</div>
+                <div className="flex flex-col gap-1">
+                  <div className="font-mono text-[11px] text-[#8E95A3] uppercase">Aksi Verifikasi Petugas</div>
+                  <p className="font-body text-[12px] text-[#525866]">
+                    <span className="font-bold text-[#15803D]">VERIFIKASI VALID</span> = data asli &amp; perlu ditangani lapangan ·{' '}
+                    <span className="font-bold text-[#B91C1C]">TANDAI SPAM</span> = laporan palsu / tidak valid.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     onClick={() => handleUpdate({ status_verifikasi: 'terverifikasi' }, 'LAPORAN DIVERIFIKASI VALID', 'terverifikasi')}

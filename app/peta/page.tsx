@@ -82,7 +82,7 @@ export default function PetaPage() {
         <div className="w-full bg-[#FFFFFF] border border-[#D0D5DD] p-4 mb-6 flex flex-wrap items-center justify-between gap-4 font-mono text-[12px]">
           <div className="flex items-center gap-2 text-[#525866]">
             <ShieldCheck className="w-4 h-4 text-[#15803D] shrink-0" />
-            <span className="uppercase font-bold">Hanya menampilkan laporan terverifikasi petugas</span>
+            <span className="uppercase font-bold">Menampilkan laporan terverifikasi yang sedang/sudah ditangani</span>
           </div>
 
           <button
