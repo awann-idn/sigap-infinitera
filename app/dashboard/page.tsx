@@ -35,7 +35,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<LaporanItem | null>(null);
 
-  const [petugas, setPetugas] = useState<{ nama?: string; institusi?: string } | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -62,15 +61,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchReports();
-  }, []);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('sigap_auth');
-      if (raw) setPetugas(JSON.parse(raw));
-    } catch {
-      setPetugas(null);
-    }
   }, []);
 
   const closeModal = () => {
@@ -175,11 +165,11 @@ export default function DashboardPage() {
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-display font-bold text-[16px] text-[#800020] truncate">
-                {petugas?.nama || 'PANEL PETUGAS'}
+              <span className="font-display font-bold text-[15px] text-[#800020] truncate">
+                BPBD SUMATERA SELATAN
               </span>
               <span className="font-mono text-[10px] text-[#8E95A3] truncate">
-                {petugas?.institusi || 'DASHBOARD VERIFIKASI'}
+                PANEL PETUGAS
               </span>
             </div>
           </div>

@@ -64,6 +64,7 @@ export default function LeafletMapComponent({
   useEffect(() => {
     if (!isClient) return;
     let disposed = false;
+    let resizeObserver: ResizeObserver | null = null;
 
     import('leaflet').then((L) => {
       if (disposed || mapRef.current || !containerRef.current) return;
@@ -87,10 +88,17 @@ export default function LeafletMapComponent({
       mapRef.current = map;
       markerLayerRef.current = L.layerGroup().addTo(map);
       setReady(true);
+
+      // Leaflet measures the container once; re-measure after layout/import
+      // so the tiles are not cut off, and on any container resize.
+      window.setTimeout(() => map.invalidateSize(), 0);
+      resizeObserver = new ResizeObserver(() => map.invalidateSize());
+      resizeObserver.observe(containerRef.current);
     });
 
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

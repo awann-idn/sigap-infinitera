@@ -94,7 +94,7 @@ export default function PetaPage() {
         </div>
 
         {/* Full Map */}
-        <div className="relative w-full flex-1 h-[calc(100vh-320px)] min-h-[560px] border border-[#800020] bg-[#800020]">
+        <div className="relative w-full h-[68vh] min-h-[520px] border border-[#800020] bg-[#800020] overflow-hidden">
           <LeafletMap reports={reports} />
 
           {/* Floating city panel (IQAir-style) */}
