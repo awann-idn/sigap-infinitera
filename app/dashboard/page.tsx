@@ -305,9 +305,9 @@ export default function DashboardPage() {
       {/* Detail & Action Modal (popup) */}
       {selectedReport && (
         <div className="fixed inset-0 z-[9990] bg-[#0F141A]/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#FFFFFF] border-2 border-[#800020] shadow-2xl">
+          <div className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-[#FFFFFF] border-2 border-[#800020] shadow-2xl">
             {/* Modal header */}
-            <div className="sticky top-0 z-10 bg-[#FFFFFF] flex items-start justify-between gap-3 px-5 py-4 border-b border-[#D0D5DD]">
+            <div className="shrink-0 bg-[#FFFFFF] flex items-start justify-between gap-3 px-5 py-4 border-b border-[#D0D5DD]">
               <div className="flex flex-col gap-2 min-w-0">
                 <span className="font-mono text-[13px] text-[#800020] font-bold truncate">
                   DETAIL LAPORAN: {selectedReport.kode}
@@ -327,7 +327,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="p-5 flex flex-col gap-5">
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#D0D5DD] overflow-hidden">
                   <img src={selectedReport.foto_url} alt="Bukti Visual" className="w-full h-full object-cover" />
@@ -363,13 +363,7 @@ export default function DashboardPage() {
 
               {/* Verifikasi (ditaruh di atas agar jelas) */}
               <div className="bg-[#FFF9F2] border-2 border-[#800020] p-4 flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">Aksi Verifikasi Petugas</div>
-                  <p className="font-body text-[12px] text-[#525866]">
-                    <span className="font-bold text-[#15803D]">VERIFIKASI VALID</span> = data asli &amp; perlu ditangani lapangan ·{' '}
-                    <span className="font-bold text-[#B91C1C]">TANDAI SPAM</span> = laporan palsu / tidak valid.
-                  </p>
-                </div>
+                <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">Aksi Verifikasi Petugas</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     onClick={() => handleUpdate({ status_verifikasi: 'terverifikasi' }, 'LAPORAN DIVERIFIKASI VALID', 'terverifikasi')}
