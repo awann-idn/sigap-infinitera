@@ -329,7 +329,7 @@ export default function DashboardPage() {
 
             <div
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 flex flex-col gap-5"
-              style={{ maxHeight: 'calc(90vh - 88px)' }}
+              style={{ maxHeight: 'calc(90vh - 88px)', overflowY: 'auto' }}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#D0D5DD] overflow-hidden">
@@ -393,6 +393,27 @@ export default function DashboardPage() {
                     {pending === 'spam' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                     {pending === 'spam' ? 'MEMPROSES...' : 'TANDAI SPAM'}
                   </button>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-3 border-t border-[#D0D5DD]">
+                  <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">Status Penanganan</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['menunggu', 'diproses', 'selesai'] as const).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => handleUpdate({ status_penanganan: p }, `STATUS: ${p.toUpperCase()}`, p)}
+                        disabled={busy}
+                        className={`h-[44px] font-mono text-[11px] uppercase border-2 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          selectedReport.status_penanganan === p
+                            ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
+                            : 'bg-[#FFFFFF] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
+                        }`}
+                      >
+                        {pending === p && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {p}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -465,25 +486,6 @@ export default function DashboardPage() {
 
               {/* Actions */}
               <div className="flex flex-col gap-4 pt-5 border-t border-[#D0D5DD]">
-                <div className="font-mono text-[11px] text-[#8E95A3] uppercase">Status Penanganan</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['menunggu', 'diproses', 'selesai'] as const).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => handleUpdate({ status_penanganan: p }, `STATUS: ${p.toUpperCase()}`, p)}
-                      disabled={busy}
-                      className={`h-[44px] font-mono text-[11px] uppercase border-2 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                        selectedReport.status_penanganan === p
-                          ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
-                          : 'bg-[#FFF9F2] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
-                      }`}
-                    >
-                      {pending === p && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                      {p}
-                    </button>
-                  ))}
-                </div>
-
                 {/* Delete */}
                 <div className="pt-3 border-t border-[#D0D5DD]">
                   {!confirmDelete ? (
