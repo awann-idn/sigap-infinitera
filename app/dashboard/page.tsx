@@ -342,13 +342,15 @@ export default function DashboardPage() {
                   <div className="flex justify-between gap-3">
                     <span className="text-[#8E95A3]">EXIF FOTO:</span>
                     <span className="text-[#272E3B] text-right">
-                      {selectedReport.lat_exif !== undefined ? `${selectedReport.lat_exif}, ${selectedReport.lng_exif}` : 'TIDAK TERSEDIA'}
+                      {selectedReport.lat_exif != null && selectedReport.lng_exif != null
+                        ? `${selectedReport.lat_exif}, ${selectedReport.lng_exif}`
+                        : 'TIDAK TERSEDIA'}
                     </span>
                   </div>
                   <div className="flex justify-between gap-3 pt-2 border-t border-[#D0D5DD]">
                     <span className="text-[#8E95A3]">SELISIH JARAK:</span>
                     <span className="text-[#272E3B] font-bold">
-                      {selectedReport.jarak_exif_gps_m !== undefined ? `${selectedReport.jarak_exif_gps_m} METER` : 'N/A'}
+                      {selectedReport.jarak_exif_gps_m != null ? `${selectedReport.jarak_exif_gps_m} METER` : 'N/A'}
                     </span>
                   </div>
                   {selectedReport.flag_manual && (
@@ -356,6 +358,44 @@ export default function DashboardPage() {
                       FLAG: SELISIH &gt; 500M / FALLBACK PIN PERLU DIVERIFIKASI
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Verifikasi (ditaruh di atas agar jelas) */}
+              <div className="bg-[#FFF9F2] border-2 border-[#800020] p-4 flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">Aksi Verifikasi Petugas</div>
+                  <p className="font-body text-[12px] text-[#525866]">
+                    <span className="font-bold text-[#15803D]">VERIFIKASI VALID</span> = data asli &amp; perlu ditangani lapangan ·{' '}
+                    <span className="font-bold text-[#B91C1C]">TANDAI SPAM</span> = laporan palsu / tidak valid.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleUpdate({ status_verifikasi: 'terverifikasi' }, 'LAPORAN DIVERIFIKASI VALID', 'terverifikasi')}
+                    disabled={busy}
+                    className={`h-[48px] font-mono text-[12px] uppercase font-bold border-2 inline-flex items-center justify-center gap-2 transition-colors ${
+                      selectedReport.status_verifikasi === 'terverifikasi'
+                        ? 'bg-[#15803D] text-[#FFFFFF] border-[#15803D]'
+                        : 'bg-[#FFFFFF] text-[#15803D] border-[#15803D] hover:bg-[#15803D]/10'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {pending === 'terverifikasi' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    {pending === 'terverifikasi' ? 'MEMPROSES...' : 'VERIFIKASI VALID'}
+                  </button>
+
+                  <button
+                    onClick={() => handleUpdate({ status_verifikasi: 'spam' }, 'LAPORAN DITANDAI SPAM', 'spam')}
+                    disabled={busy}
+                    className={`h-[48px] font-mono text-[12px] uppercase font-bold border-2 inline-flex items-center justify-center gap-2 transition-colors ${
+                      selectedReport.status_verifikasi === 'spam'
+                        ? 'bg-[#B91C1C] text-[#FFFFFF] border-[#B91C1C]'
+                        : 'bg-[#FFFFFF] text-[#B91C1C] border-[#B91C1C] hover:bg-[#B91C1C]/10'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {pending === 'spam' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    {pending === 'spam' ? 'MEMPROSES...' : 'TANDAI SPAM'}
+                  </button>
                 </div>
               </div>
 
@@ -428,42 +468,7 @@ export default function DashboardPage() {
 
               {/* Actions */}
               <div className="flex flex-col gap-4 pt-5 border-t border-[#D0D5DD]">
-                <div className="flex flex-col gap-1">
-                  <div className="font-mono text-[11px] text-[#8E95A3] uppercase">Aksi Verifikasi Petugas</div>
-                  <p className="font-body text-[12px] text-[#525866]">
-                    <span className="font-bold text-[#15803D]">VERIFIKASI VALID</span> = data asli &amp; perlu ditangani lapangan ·{' '}
-                    <span className="font-bold text-[#B91C1C]">TANDAI SPAM</span> = laporan palsu / tidak valid.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleUpdate({ status_verifikasi: 'terverifikasi' }, 'LAPORAN DIVERIFIKASI VALID', 'terverifikasi')}
-                    disabled={busy}
-                    className={`h-[48px] font-mono text-[12px] uppercase font-bold border-2 inline-flex items-center justify-center gap-2 transition-colors ${
-                      selectedReport.status_verifikasi === 'terverifikasi'
-                        ? 'bg-[#15803D] text-[#FFFFFF] border-[#15803D]'
-                        : 'bg-[#FFFFFF] text-[#15803D] border-[#15803D] hover:bg-[#15803D]/10'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {pending === 'terverifikasi' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                    {pending === 'terverifikasi' ? 'MEMPROSES...' : 'VERIFIKASI VALID'}
-                  </button>
-
-                  <button
-                    onClick={() => handleUpdate({ status_verifikasi: 'spam' }, 'LAPORAN DITANDAI SPAM', 'spam')}
-                    disabled={busy}
-                    className={`h-[48px] font-mono text-[12px] uppercase font-bold border-2 inline-flex items-center justify-center gap-2 transition-colors ${
-                      selectedReport.status_verifikasi === 'spam'
-                        ? 'bg-[#B91C1C] text-[#FFFFFF] border-[#B91C1C]'
-                        : 'bg-[#FFFFFF] text-[#B91C1C] border-[#B91C1C] hover:bg-[#B91C1C]/10'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {pending === 'spam' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                    {pending === 'spam' ? 'MEMPROSES...' : 'TANDAI SPAM'}
-                  </button>
-                </div>
-
-                <div className="font-mono text-[11px] text-[#8E95A3] uppercase pt-2">Status Penanganan</div>
+                <div className="font-mono text-[11px] text-[#8E95A3] uppercase">Status Penanganan</div>
                 <div className="grid grid-cols-3 gap-2">
                   {(['menunggu', 'diproses', 'selesai'] as const).map((p) => (
                     <button
