@@ -62,6 +62,7 @@ export async function POST(request: Request) {
     const latExif = body.lat_exif != null ? Number(body.lat_exif) : undefined;
     const lngExif = body.lng_exif != null ? Number(body.lng_exif) : undefined;
     const dateTimeOriginal = body.date_time_original || undefined;
+    const sumberKoordinat: 'gps' | 'manual' = body.sumber_koordinat === 'manual' ? 'manual' : 'gps';
 
     // Calculate distance on server
     let jarakExifGpsM: number | undefined;
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
       exifLng: lngExif,
       dateTimeOriginal,
       serverTimestamp,
+      sumberKoordinat,
     });
 
     const newReport = await addLaporan({
@@ -88,6 +90,7 @@ export async function POST(request: Request) {
       lng_exif: lngExif,
       jarak_exif_gps_m: jarakExifGpsM,
       flag_manual: tingkat !== 'TINGGI',
+      sumber_koordinat: sumberKoordinat,
       wilayah: body.wilayah || 'Wilayah Tidak Teridentifikasi',
       deskripsi: body.deskripsi || '',
       skala: body.skala || 'SEDANG',

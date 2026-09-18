@@ -43,6 +43,8 @@ export interface TingkatKeyakinanParams {
   dateTimeOriginal?: string | null;
   /** Server timestamp when the report is received (ISO string) */
   serverTimestamp?: string;
+  /** Source of coordinates: 'gps' (auto) or 'manual' (pin drag) */
+  sumberKoordinat?: 'gps' | 'manual';
 }
 
 export interface TingkatKeyakinanResult {
@@ -68,7 +70,11 @@ export function calculateTingkatKeyakinan(
     exifLng,
     dateTimeOriginal,
     serverTimestamp,
+    sumberKoordinat = 'gps',
   } = params;
+
+  // Manual pin coordinates are capped at TINJAUAN (never TINGGI)
+  const isManual = sumberKoordinat === 'manual';
 
   const serverTime = serverTimestamp ? new Date(serverTimestamp) : new Date();
 
@@ -130,7 +136,15 @@ export function calculateTingkatKeyakinan(
     };
   }
 
-  // Distance < 100m → TINGGI
+  // Distance < 100m → TINGGI (but cap to TINJAUAN if manual pin)
+  if (isManual) {
+    return {
+      tingkat: 'TINJAUAN',
+      jarakMeter: distance,
+      reason: `Lokasi GPS & EXIF cocok (${distance}m) tetapi koordinat ditentukan manual`,
+    };
+  }
+
   return {
     tingkat: 'TINGGI',
     jarakMeter: distance,

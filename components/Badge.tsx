@@ -4,7 +4,7 @@ export type StatusVerifikasi = 'belum-diverifikasi' | 'terverifikasi' | 'spam';
 export type StatusPenanganan = 'menunggu' | 'diproses' | 'selesai';
 
 interface BadgeProps {
-  type?: 'verifikasi' | 'penanganan' | 'skala' | 'keyakinan';
+  type?: 'verifikasi' | 'penanganan' | 'skala' | 'keyakinan' | 'sumber';
   value: string;
   isDashboard?: boolean;
   className?: string;
@@ -78,6 +78,14 @@ export function Badge({ type = 'verifikasi', value, isDashboard = false, classNa
         break;
       default:
         label = value.toUpperCase();
+    }
+  } else if (type === 'sumber') {
+    if (value.toLowerCase() === 'manual' || value.toUpperCase().includes('MANUAL')) {
+      colorStyle = 'text-[#B45309] border-[#B45309] bg-[#B45309]/10 font-bold';
+      label = 'LOKASI DITENTUKAN MANUAL';
+    } else {
+      colorStyle = 'text-[#15803D] border-[#15803D] bg-[#15803D]/10 font-bold';
+      label = 'GPS OTOMATIS';
     }
   }
 

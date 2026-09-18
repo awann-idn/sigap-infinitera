@@ -12,6 +12,7 @@ export interface LaporanItem {
   lng_exif?: number;
   jarak_exif_gps_m?: number;
   flag_manual: boolean;
+  sumber_koordinat: 'gps' | 'manual';
   wilayah: string;
   deskripsi: string;
   skala: 'KECIL' | 'SEDANG' | 'BESAR';
@@ -41,6 +42,7 @@ const INITIAL_SEED: LaporanItem[] = [
     lng_exif: 104.7062,
     jarak_exif_gps_m: 30,
     flag_manual: false,
+    sumber_koordinat: 'gps',
     wilayah: 'Kec. Gandus, Kota Palembang, Sumatera Selatan',
     deskripsi: 'Asap tebal membumbung tinggi dari lahan gambut kering di tepi Sungai Musi.',
     skala: 'BESAR',
@@ -61,6 +63,7 @@ const INITIAL_SEED: LaporanItem[] = [
     lng_exif: 104.701,
     jarak_exif_gps_m: 3430,
     flag_manual: true,
+    sumber_koordinat: 'gps',
     wilayah: 'Kec. Sukarami, Kota Palembang, Sumatera Selatan',
     deskripsi: 'Api membakar semak dan rerumputan kering dekat permukiman warga.',
     skala: 'SEDANG',
@@ -77,6 +80,7 @@ const INITIAL_SEED: LaporanItem[] = [
     foto_url: '/images/drone_monitoring.png',
     lat_gps: -3.2456,
     lng_gps: 104.657,
+    sumber_koordinat: 'gps',
     wilayah: 'Kec. Indralaya, Kab. Ogan Ilir, Sumatera Selatan',
     deskripsi: 'Titik api kecil bekas pembakaran lahan semak yang mulai meluas.',
     skala: 'KECIL',

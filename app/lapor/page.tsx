@@ -2,7 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Camera, MapPin, CheckCircle2, ShieldCheck, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  Camera,
+  MapPin,
+  CheckCircle2,
+  ShieldCheck,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+  AlertCircle,
+} from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -28,7 +37,11 @@ export default function LaporPage() {
 
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
-  const [gpsStatus, setGpsStatus] = useState<'IDLE' | 'FETCHING' | 'SUCCESS' | 'DENIED'>('IDLE');
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<'IDLE' | 'FETCHING' | 'SUCCESS' | 'ERROR'>('IDLE');
+  const [gpsErrorMessage, setGpsErrorMessage] = useState<string | null>(null);
+  const [sumberKoordinat, setSumberKoordinat] = useState<'gps' | 'manual'>('gps');
+  const [showManualPin, setShowManualPin] = useState(false);
 
   const [wilayah, setWilayah] = useState<string>('');
   const [deskripsi, setDeskripsi] = useState('');
@@ -43,30 +56,61 @@ export default function LaporPage() {
 
   const requestBrowserLocation = () => {
     if (!navigator.geolocation) {
-      setGpsStatus('DENIED');
+      setGpsStatus('ERROR');
+      setGpsErrorMessage('Browser Anda tidak mendukung Geolocation API.');
+      setGpsLat(null);
+      setGpsLng(null);
+      setGpsAccuracy(null);
+      setWilayah('');
       return;
     }
 
     setGpsStatus('FETCHING');
+    setGpsErrorMessage(null);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        const accuracy = Math.round(pos.coords.accuracy);
+
         setGpsLat(lat);
         setGpsLng(lng);
+        setGpsAccuracy(accuracy);
         setGpsStatus('SUCCESS');
+        setGpsErrorMessage(null);
+        setSumberKoordinat('gps');
 
         const regionName = await reverseGeocode(lat, lng);
         setWilayah(regionName);
       },
       (err) => {
-        console.warn('Geolocation denied or failed:', err);
-        setGpsStatus('DENIED');
-        setGpsLat(-3.0037);
-        setGpsLng(104.706);
-        setWilayah('Kec. Gandus, Kota Palembang, Sumatera Selatan (Fallback Pin)');
+        console.warn('Geolocation error:', err);
+        setGpsStatus('ERROR');
+        // JANGAN mengisi koordinat palsu / fallback
+        setGpsLat(null);
+        setGpsLng(null);
+        setGpsAccuracy(null);
+        setWilayah('');
+
+        let message = 'Gagal mendeteksi lokasi GPS.';
+        if (err.code === 1) {
+          // PERMISSION_DENIED
+          message = 'Izin akses lokasi ditolak oleh browser/pengguna. Silakan izinkan akses lokasi pada browser Anda.';
+        } else if (err.code === 2) {
+          // POSITION_UNAVAILABLE
+          message = 'Sinyal GPS tidak tersedia. Pastikan fitur GPS aktif dan memiliki sinyal yang cukup.';
+        } else if (err.code === 3) {
+          // TIMEOUT
+          message = 'Waktu pencarian GPS habis (timeout). Coba berpindah ke area terbuka lalu perbarui.';
+        }
+        setGpsErrorMessage(message);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      }
     );
   };
 
@@ -97,8 +141,34 @@ export default function LaporPage() {
   const handlePinDragEnd = async (lat: number, lng: number) => {
     setGpsLat(lat);
     setGpsLng(lng);
+    setGpsAccuracy(null);
+    setSumberKoordinat('manual');
+    setGpsStatus('SUCCESS');
+    setGpsErrorMessage(null);
     const regionName = await reverseGeocode(lat, lng);
     setWilayah(regionName);
+  };
+
+  const handleToggleManualPin = () => {
+    if (!showManualPin) {
+      setShowManualPin(true);
+      if (gpsLat === null || gpsLng === null) {
+        const defaultLat = -3.0037;
+        const defaultLng = 104.706;
+        setGpsLat(defaultLat);
+        setGpsLng(defaultLng);
+        setGpsAccuracy(null);
+        setSumberKoordinat('manual');
+        setGpsStatus('SUCCESS');
+        setGpsErrorMessage(null);
+        reverseGeocode(defaultLat, defaultLng).then((res) => setWilayah(res));
+      } else {
+        setSumberKoordinat('manual');
+        setGpsAccuracy(null);
+      }
+    } else {
+      setShowManualPin(false);
+    }
   };
 
   // Calculate distance for preview display
@@ -133,6 +203,7 @@ export default function LaporPage() {
         date_time_original: exifInfo?.dateTimeOriginal ?? null,
         wilayah: wilayah || `${gpsLat.toFixed(4)}, ${gpsLng.toFixed(4)}`,
         deskripsi,
+        sumber_koordinat: sumberKoordinat,
         // Server calculates: jarak_exif_gps_m, tingkat_keyakinan, flag_manual
       };
 
@@ -198,6 +269,12 @@ export default function LaporPage() {
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">KOORDINAT GPS:</span>
                 <span className="text-[#800020]">{submittedReport.lat_gps}, {submittedReport.lng_gps}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8E95A3]">SUMBER KOORDINAT:</span>
+                <span className="text-[#800020] font-bold">
+                  {submittedReport.sumber_koordinat === 'manual' ? 'MANUAL (PIN PETA)' : 'GPS OTOMATIS'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#8E95A3]">TINGKAT KEYAKINAN:</span>
@@ -332,30 +409,112 @@ export default function LaporPage() {
                   <MapPin className="w-4 h-4 text-[#800020]" /> 2. KOORDINAT &amp; WILAYAH LOKASI
                 </label>
 
-                <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-2">
-                  <div className="font-mono text-[15px] font-bold text-[#000000] bg-[#FFF9F2] p-3 border border-[#000000] flex items-center justify-between gap-3">
-                    <span className="break-all">
-                      LAT: {gpsLat !== null ? gpsLat.toFixed(5) : '...'} &nbsp; LNG:{' '}
-                      {gpsLng !== null ? gpsLng.toFixed(5) : '...'}
+                <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-3">
+                  {/* Coordinates Display Box */}
+                  {gpsLat !== null && gpsLng !== null ? (
+                    <div className="font-mono text-[15px] font-bold text-[#000000] bg-[#FFF9F2] p-3 border border-[#000000] flex items-center justify-between gap-3">
+                      <span className="break-all">
+                        LAT: {gpsLat.toFixed(5)} &nbsp; LNG: {gpsLng.toFixed(5)}
+                      </span>
+                      <ShieldCheck className="w-5 h-5 text-[#800020] shrink-0" />
+                    </div>
+                  ) : (
+                    <div className="font-mono text-[14px] font-bold text-[#B91C1C] bg-[#FEF2F2] p-3 border-2 border-[#EF4444] flex items-center justify-between gap-3">
+                      <span>
+                        {gpsStatus === 'FETCHING'
+                          ? 'Mendeteksi sinyal GPS browser...'
+                          : 'Lokasi belum terdeteksi'}
+                      </span>
+                      {gpsStatus === 'FETCHING' ? (
+                        <RefreshCw className="w-5 h-5 text-[#800020] animate-spin shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-[#B91C1C] shrink-0" />
+                      )}
+                    </div>
+                  )}
+
+                  {/* GPS Accuracy Display */}
+                  {sumberKoordinat === 'gps' && gpsAccuracy !== null && (
+                    <div className="font-mono text-[12px] text-[#272E3B] font-bold flex items-center gap-1.5">
+                      <span>Akurasi GPS: ±{gpsAccuracy} meter</span>
+                    </div>
+                  )}
+
+                  {/* Weak GPS Warning (> 100m) */}
+                  {sumberKoordinat === 'gps' && gpsAccuracy !== null && gpsAccuracy > 100 && (
+                    <div className="bg-[#FEF3C7] border-2 border-[#F59E0B] p-3 text-[#92400E] font-mono text-[12px] flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-[#D97706] mt-0.5" />
+                      <span className="font-bold">
+                        Sinyal GPS lemah. Pindah ke area terbuka lalu tekan Perbarui Lokasi GPS.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Manual Location Notice */}
+                  {sumberKoordinat === 'manual' && gpsLat !== null && (
+                    <div className="font-mono text-[11px] text-[#B45309] font-bold bg-[#FEF3C7] border border-[#F59E0B] p-2.5 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 shrink-0 text-[#B45309]" />
+                      <span>LOKASI DITENTUKAN MANUAL (Laporan otomatis masuk tingkat TINJAUAN)</span>
+                    </div>
+                  )}
+
+                  {/* Geolocation Error State Message */}
+                  {gpsStatus === 'ERROR' && gpsErrorMessage && (
+                    <div className="bg-[#FEF2F2] border-2 border-[#EF4444] p-3 text-[#991B1B] font-mono text-[12px] flex flex-col gap-1">
+                      <div className="font-bold flex items-center gap-1.5 uppercase">
+                        <AlertCircle className="w-4 h-4 text-[#DC2626] shrink-0" />
+                        Gagal Mendeteksi Lokasi GPS
+                      </div>
+                      <div className="text-[11px] leading-relaxed">{gpsErrorMessage}</div>
+                    </div>
+                  )}
+
+                  {/* Reverse Geocoded Wilayah */}
+                  <div className="font-body text-[14px] text-[#272E3B] font-medium pt-1 border-t border-[#000000]/15">
+                    Wilayah:{' '}
+                    <span className="text-[#800020] font-mono font-bold">
+                      {wilayah || (gpsLat === null ? 'Menunggu penentuan koordinat...' : 'Mendeteksi alamat...')}
                     </span>
-                    <ShieldCheck className="w-5 h-5 text-[#800020] shrink-0" />
                   </div>
 
-                  <div className="font-body text-[14px] text-[#272E3B] font-medium">
-                    Wilayah: <span className="text-[#800020] font-mono font-bold">{wilayah || 'Mendeteksi alamat...'}</span>
+                  {/* Location Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#000000]/15">
+                    <button
+                      type="button"
+                      onClick={requestBrowserLocation}
+                      disabled={gpsStatus === 'FETCHING'}
+                      className="h-[38px] px-3.5 bg-[#800020] hover:bg-[#600018] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${gpsStatus === 'FETCHING' ? 'animate-spin' : ''}`} />
+                      PERBARUI LOKASI GPS
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleManualPin}
+                      className="h-[38px] px-3.5 bg-[#FFFFFF] border border-[#000000] text-[#000000] hover:bg-[#F3E6D5] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-[#800020]" />
+                      {showManualPin ? 'TUTUP PETA MANUAL' : 'TENTUKAN PIN MANUAL DI PETA'}
+                    </button>
                   </div>
                 </div>
 
                 {/* Fallback Draggable Pin Map */}
-                {gpsStatus === 'DENIED' && gpsLat !== null && gpsLng !== null && (
-                  <div className="flex flex-col gap-2">
-                    <span className="font-mono text-[11px] text-[#525866]">
-                      Geser pin pada peta berikut ke titik pusat kejadian kebakaran:
-                    </span>
-                    <div className="w-full h-[220px]">
+                {(showManualPin || (gpsStatus === 'ERROR' && gpsLat !== null)) && (
+                  <div className="flex flex-col gap-2 p-3 bg-[#FFFFFF] border-2 border-[#000000]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] text-[#000000] font-bold uppercase">
+                        FALLBACK PIN MANUAL (GESER PIN KE TITIK KEBAKARAN):
+                      </span>
+                      <span className="font-mono text-[10px] text-[#B45309] font-bold bg-[#FEF3C7] border border-[#F59E0B] px-1.5 py-0.5 uppercase">
+                        SUMBER: MANUAL
+                      </span>
+                    </div>
+                    <div className="w-full h-[240px]">
                       <MapContainer
                         reports={[]}
-                        center={[gpsLat, gpsLng]}
+                        center={gpsLat !== null && gpsLng !== null ? [gpsLat, gpsLng] : [-3.0037, 104.706]}
                         zoom={14}
                         draggablePin={true}
                         onPinDragEnd={handlePinDragEnd}
@@ -363,17 +522,9 @@ export default function LaporPage() {
                     </div>
                   </div>
                 )}
-
-                <button
-                  type="button"
-                  onClick={requestBrowserLocation}
-                  className="self-start font-mono text-[11px] text-[#800020] font-bold hover:underline flex items-center gap-1"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> REFRESH GPS
-                </button>
               </div>
 
-              {/* Step 3: Description */}
+              {/* Step 3: Description & Submit Button */}
               <div className="flex flex-col gap-6">
                 <Textarea
                   label="3. DESKRIPSI SINGKAT KONDISI LAPANGAN (OPSIONAL)"
@@ -386,10 +537,16 @@ export default function LaporPage() {
                   type="submit"
                   variant="primary"
                   fullWidth
-                  disabled={submitting || !file}
-                  className="mt-2 text-[15px] h-[56px]"
+                  disabled={submitting || !file || gpsLat === null || gpsLng === null}
+                  className="mt-2 text-[15px] h-[56px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'MEMPROSES LAPORAN...' : 'KIRIM LAPORAN DARURAT SIGAP'}
+                  {submitting
+                    ? 'MEMPROSES LAPORAN...'
+                    : gpsLat === null || gpsLng === null
+                    ? 'LOKASI BELUM TERSEDIA (GPS / PIN MANUAL WAJIB)'
+                    : !file
+                    ? 'FOTO KAMERA WAJIB DIAMBIL'
+                    : 'KIRIM LAPORAN DARURAT SIGAP'}
                 </Button>
               </div>
             </div>

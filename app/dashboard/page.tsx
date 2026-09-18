@@ -281,7 +281,14 @@ export default function DashboardPage() {
                       {item.wilayah}
                     </td>
                     <td className="p-4">
-                      <Badge type="verifikasi" value={item.status_verifikasi} isDashboard={true} />
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge type="verifikasi" value={item.status_verifikasi} isDashboard={true} />
+                        {item.sumber_koordinat === 'manual' && (
+                          <span className="font-mono text-[9px] font-bold text-[#B45309] bg-[#B45309]/10 border border-[#B45309] px-1 py-0.5 uppercase tracking-wider">
+                            PIN MANUAL
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4">
                       <Badge type="penanganan" value={item.status_penanganan} isDashboard={true} />
@@ -313,6 +320,9 @@ export default function DashboardPage() {
                   DETAIL LAPORAN: {selectedReport.kode}
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
+                  {selectedReport.sumber_koordinat === 'manual' && (
+                    <Badge type="sumber" value="LOKASI DITENTUKAN MANUAL" isDashboard={true} />
+                  )}
                   <Badge type="verifikasi" value={selectedReport.status_verifikasi} isDashboard={true} />
                   <Badge type="penanganan" value={selectedReport.status_penanganan} isDashboard={true} />
                 </div>
@@ -337,12 +347,23 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-[#F3E6D5] p-4 border border-[#D0D5DD] flex flex-col gap-3 font-mono text-[12px]">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[#800020] font-bold uppercase">Integritas Geolokasi</span>
-                    <Badge type="keyakinan" value={selectedReport.tingkat_keyakinan || 'TINJAUAN'} isDashboard={true} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {selectedReport.sumber_koordinat === 'manual' && (
+                        <Badge type="sumber" value="LOKASI DITENTUKAN MANUAL" isDashboard={true} />
+                      )}
+                      <Badge type="keyakinan" value={selectedReport.tingkat_keyakinan || 'TINJAUAN'} isDashboard={true} />
+                    </div>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span className="text-[#8E95A3]">GPS BROWSER:</span>
+                    <span className="text-[#8E95A3]">SUMBER KOORDINAT:</span>
+                    <span className="text-[#272E3B] text-right font-bold">
+                      {selectedReport.sumber_koordinat === 'manual' ? 'MANUAL (PIN PETA)' : 'GPS BROWSER (OTOMATIS)'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-[#8E95A3]">GPS / PIN:</span>
                     <span className="text-[#272E3B] text-right">{selectedReport.lat_gps}, {selectedReport.lng_gps}</span>
                   </div>
                   <div className="flex justify-between gap-3">

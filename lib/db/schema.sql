@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.laporan (
   lng_exif FLOAT,
   jarak_exif_gps_m INT,
   flag_manual BOOLEAN DEFAULT FALSE,
+  sumber_koordinat VARCHAR(20) NOT NULL DEFAULT 'gps' CHECK (sumber_koordinat IN ('gps', 'manual')),
   wilayah VARCHAR(255) NOT NULL,
   deskripsi TEXT,
   skala VARCHAR(20) NOT NULL CHECK (skala IN ('KECIL', 'SEDANG', 'BESAR')),
