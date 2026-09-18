@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, ArrowRight, Flame } from 'lucide-react';
+import { Menu, X, Flame } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -25,12 +25,6 @@ export default function Navbar() {
             SIGAP
           </span>
         </Link>
-
-        {/* System Status */}
-        <div className="hidden lg:flex items-center gap-2 font-mono text-[12px] font-bold text-[#000000] bg-[#FFFFFF] px-3 py-1.5 border border-[#000000]">
-          <span className="w-2 h-2 rounded-full bg-[#15803D] animate-pulse"></span>
-          <span>SISTEM AKTIF</span>
-        </div>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">
@@ -97,12 +91,6 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <div className="pt-4 border-t border-[#000000] flex items-center justify-between text-[#000000] font-mono text-[12px] font-bold">
-            <span>STATUS: OPERASIONAL</span>
-            <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="text-[#000000] font-bold flex items-center gap-1 underline">
-              LOGIN PETUGAS <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
         </div>
       )}
     </header>

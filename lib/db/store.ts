@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { normalizeWilayahCity } from '@/lib/wilayah';
 
 export interface LaporanItem {
   id: string;
@@ -162,21 +163,25 @@ export async function addLaporan(
   return newItem;
 }
 
-export async function updateLaporanStatus(
+export type LaporanUpdate = Partial<
+  Pick<LaporanItem, 'status_verifikasi' | 'status_penanganan' | 'deskripsi' | 'wilayah'>
+>;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+export async function updateLaporan(
   id: string,
-  status_verifikasi?: 'belum-diverifikasi' | 'terverifikasi' | 'spam',
-  status_penanganan?: 'menunggu' | 'diproses' | 'selesai'
+  fields: LaporanUpdate
 ): Promise<LaporanItem | null> {
-  const updates: Partial<LaporanItem> = { updated_at: new Date().toISOString() };
-  if (status_verifikasi) updates.status_verifikasi = status_verifikasi;
-  if (status_penanganan) updates.status_penanganan = status_penanganan;
+  const updates = { ...fields, updated_at: new Date().toISOString() };
 
   const supabase = getSupabase();
   if (supabase) {
     try {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       let query = supabase.from('laporan').update(updates).select();
-      query = isUuid ? query.eq('id', id) : query.eq('kode', id);
+      query = isUuid(id) ? query.eq('id', id) : query.eq('kode', id);
 
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
@@ -197,13 +202,44 @@ export async function updateLaporanStatus(
   return memoryStore[index];
 }
 
+export async function deleteLaporan(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  const index = memoryStore.findIndex((item) => item.id === id || item.kode === id);
+
+  if (supabase) {
+    try {
+      let query = supabase.from('laporan').delete();
+      query = isUuid(id) ? query.eq('id', id) : query.eq('kode', id);
+      const { error } = await query;
+
+      if (error) {
+        console.warn('Supabase delete error:', error.message);
+        return false;
+      }
+
+      if (index !== -1) memoryStore.splice(index, 1);
+      return true;
+    } catch (e) {
+      console.warn('Supabase delete failed:', e);
+      return false;
+    }
+  }
+
+  if (index !== -1) {
+    memoryStore.splice(index, 1);
+    return true;
+  }
+
+  return false;
+}
+
 export async function getStatistics(): Promise<StatisticsData> {
   const list = await getLaporanList({ onlyVerified: true });
   const penangananSelesai = list.filter((item) => item.status_penanganan === 'selesai').length;
 
   const regionCounts: Record<string, number> = {};
   list.forEach((item) => {
-    const reg = item.wilayah || 'Lainnya';
+    const reg = normalizeWilayahCity(item.wilayah || '');
     regionCounts[reg] = (regionCounts[reg] || 0) + 1;
   });
 

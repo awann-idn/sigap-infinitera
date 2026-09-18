@@ -11,6 +11,27 @@ export const revalidate = 0;
 export default async function LandingPage() {
   const stats = await getStatistics();
 
+  const heroNews = [
+    {
+      tag: 'KARHUTLA',
+      date: '17 SEP 2026',
+      title: 'BPBD Sumatera Selatan Siagakan Regu Piket 24 Jam di Titik Rawan',
+      image: '/images/firefighter_action.png',
+    },
+    {
+      tag: 'PEMANTAUAN',
+      date: '16 SEP 2026',
+      title: 'Deteksi Dini Titik Api Lahan Gambut Ogan Ilir',
+      image: '/images/drone_monitoring.png',
+    },
+    {
+      tag: 'PENCEGAHAN',
+      date: '15 SEP 2026',
+      title: 'Sosialisasi Pembukaan Lahan Tanpa Bakar di Gandus',
+      image: '/images/canal_blocking_prevention.png',
+    },
+  ];
+
   const edukasiArticles = [
     {
       id: 'pencegahan-lahan-gambut',
@@ -41,74 +62,94 @@ export default async function LandingPage() {
   return (
     <div className="w-full flex flex-col">
       {/* HERO SECTION */}
-      <section className="w-full border-b border-[#C1C7D0] py-16 md:py-28 relative bg-[#FFF9F2]">
-        <div className="max-w-[1440px] mx-auto px-5 lg:px-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <section className="w-full border-b border-[#C1C7D0] py-14 md:py-20 relative bg-[#FFF9F2]">
+        <div className="max-w-[1440px] mx-auto px-5 lg:px-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
           {/* Left Column */}
           <div className="lg:col-span-7 flex flex-col gap-6">
             <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.08em] text-[#272E3B] font-bold uppercase bg-[#FFFFFF] px-3 py-1.5 border border-[#C1C7D0] w-fit">
               <span>RESPONS DARURAT BENCANA KARHUTLA</span>
             </div>
 
-            {/* Giant Oversized Display Type */}
-            <h1 className="font-display text-[clamp(64px,10vw,150px)] font-bold tracking-[-0.04em] text-[#000000] leading-[0.92] uppercase">
+            <h1 className="font-display text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] text-[#800020] leading-[1.15] uppercase">
               LAPOR TITIK API PRESISI GPS.
             </h1>
 
-            <p className="font-body text-[16px] md:text-[18px] text-[#272E3B] leading-[1.6] max-w-xl mt-2 font-medium">
-              Kanal pelaporan bencana kebakaran hutan & lahan tanpa instalasi aplikasi. Verifikasi presisi lokasi otomatis berbasis GPS browser dan metadata foto EXIF.
+            <p className="font-body text-[16px] md:text-[18px] text-[#272E3B] leading-[1.6] max-w-xl font-medium">
+              Kanal pelaporan bencana kebakaran hutan &amp; lahan tanpa instalasi aplikasi. Verifikasi presisi lokasi otomatis berbasis GPS browser dan metadata foto EXIF.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-4">
-              <Link href="/lapor">
-                <Button variant="primary">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 pt-2 max-w-md sm:max-w-none">
+              <Link href="/lapor" className="w-full sm:w-auto">
+                <Button variant="primary" className="w-full sm:w-auto">
                   LAPOR SEKARANG
                 </Button>
               </Link>
-              <Link href="/peta">
-                <Button variant="outline" className="gap-2">
-                  <MapPin className="w-4 h-4 text-[#000000]" />
+              <Link href="/peta" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto gap-2">
+                  <MapPin className="w-4 h-4 text-[#800020]" />
                   LIHAT PETA SEBARAN
                 </Button>
               </Link>
             </div>
 
             {/* Micro Feature Highlights */}
-            <div className="grid grid-cols-3 gap-4 pt-8 border-t border-[#C1C7D0] mt-6 font-mono text-[11px] text-[#272E3B] font-bold">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-8 border-t border-[#C1C7D0] mt-4 font-mono text-[11px] text-[#272E3B] font-bold">
               <div>TANPA REGISTRASI CRITICAL</div>
               <div>AUTO GEOLOCATION GPS</div>
               <div>DATABUAT PETUGAS RESMI</div>
             </div>
           </div>
 
-          {/* Right Column: Hero Visual Frame */}
-          <div className="lg:col-span-5 relative flex items-center justify-center">
-            <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 relative w-full shadow-md">
-              <div className="flex items-center justify-between pb-3 border-b border-[#C1C7D0] font-mono text-[11px] text-[#272E3B] font-bold">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-[#D45060]"></span>
-                  <span>PREVIEW SYSTEM MVP</span>
-                </div>
-                <span>SIGAP-SYS v1.0</span>
-              </div>
+          {/* Right Column: Berita Terbaru */}
+          <div className="lg:col-span-5 w-full flex flex-col gap-4">
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.08em] font-bold text-[#800020]">
+              <span className="w-2.5 h-2.5 bg-[#D45060]" /> Berita Terbaru
+            </div>
 
-              <div className="mt-4 flex flex-col gap-4">
-                <div className="relative aspect-[16/10] bg-[#FFF9F2] border border-[#C1C7D0] overflow-hidden">
-                  <img
-                    src="/images/karhutla_smoke_forest.png"
-                    alt="Laporan Titik Api Peatland"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-3 left-3 right-3 font-mono text-[11px] bg-[#FFFFFF]/95 p-2 border border-[#000000] flex justify-between items-center text-[#000000] font-bold">
-                    <span>LAT: -3.0037  LNG: 104.7060</span>
-                    <span className="text-[#272E3B]">EXIF MATCH</span>
+            <Link
+              href="/edukasi"
+              className="group block bg-[#FFFFFF] border-2 border-[#800020] overflow-hidden"
+            >
+              <div className="relative aspect-[16/10] bg-[#F3E6D5] overflow-hidden">
+                <img
+                  src={heroNews[0].image}
+                  alt={heroNews[0].title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <span className="absolute top-2 left-2 bg-[#800020] text-[#FFFFFF] font-mono text-[10px] uppercase font-bold px-2 py-1">
+                  {heroNews[0].tag}
+                </span>
+              </div>
+              <div className="p-4 flex flex-col gap-2">
+                <span className="font-mono text-[10px] text-[#8E95A3] font-bold">{heroNews[0].date}</span>
+                <h3 className="font-display font-bold text-[18px] text-[#800020] leading-snug">
+                  {heroNews[0].title}
+                </h3>
+              </div>
+            </Link>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {heroNews.slice(1, 3).map((news) => (
+                <Link
+                  key={news.title}
+                  href="/edukasi"
+                  className="group flex gap-3 bg-[#FFFFFF] border border-[#C1C7D0] p-2 hover:border-[#800020] transition-colors"
+                >
+                  <div className="w-[72px] h-[72px] shrink-0 bg-[#F3E6D5] overflow-hidden">
+                    <img
+                      src={news.image}
+                      alt={news.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   </div>
-                </div>
-
-                <div className="bg-[#FFF9F2] p-3 border border-[#C1C7D0] flex items-center justify-between font-mono text-[12px]">
-                  <span className="text-[#4B5565] font-bold">STATUS TERAKHIR:</span>
-                  <span className="text-[#000000] font-bold uppercase">2 TERVERIFIKASI LAPANGAN</span>
-                </div>
-              </div>
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span className="font-mono text-[9px] uppercase text-[#D45060] font-bold">{news.tag}</span>
+                    <h4 className="font-body text-[13px] font-bold text-[#272E3B] leading-snug line-clamp-3">
+                      {news.title}
+                    </h4>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </div>

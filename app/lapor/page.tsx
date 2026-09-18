@@ -455,42 +455,21 @@ export default function LaporPage() {
             <div className="lg:col-span-7 flex flex-col gap-8">
               {/* Step 2: Location GPS */}
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <label className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#000000] font-bold flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#000000]" /> 2. KOORDINAT PRESISI LOKASI (GPS)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={requestBrowserLocation}
-                    className="font-mono text-[11px] text-[#000000] font-bold hover:underline flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> REFRESH GPS
-                  </button>
-                </div>
+                <label className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#000000] font-bold flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#800020]" /> 2. KOORDINAT &amp; WILAYAH LOKASI
+                </label>
 
-                {/* GPS Status Bar */}
-                <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-3">
-                  <div className="flex items-center justify-between font-mono text-[12px]">
-                    <span className="text-[#000000] font-bold uppercase">STATUS IZIN GPS:</span>
-                    <span className="text-[#000000] font-bold">
-                      {gpsStatus === 'SUCCESS'
-                        ? 'AKTIF & PRESISI'
-                        : gpsStatus === 'FETCHING'
-                        ? 'MENGAMBIL KOORDINAT...'
-                        : 'FALLBACK MAP PIN'}
-                    </span>
-                  </div>
-
-                  <div className="font-mono text-[16px] font-bold text-[#000000] bg-[#FFF9F2] p-3 border border-[#000000] flex items-center justify-between">
-                    <span>
+                <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-2">
+                  <div className="font-mono text-[15px] font-bold text-[#000000] bg-[#FFF9F2] p-3 border border-[#000000] flex items-center justify-between gap-3">
+                    <span className="break-all">
                       LAT: {gpsLat !== null ? gpsLat.toFixed(5) : '...'} &nbsp; LNG:{' '}
                       {gpsLng !== null ? gpsLng.toFixed(5) : '...'}
                     </span>
-                    <ShieldCheck className="w-5 h-5 text-[#000000]" />
+                    <ShieldCheck className="w-5 h-5 text-[#800020] shrink-0" />
                   </div>
 
                   <div className="font-body text-[14px] text-[#272E3B] font-medium">
-                    Wilayah: <span className="text-[#000000] font-mono font-bold">{wilayah || 'Mendeteksi alamat...'}</span>
+                    Wilayah: <span className="text-[#800020] font-mono font-bold">{wilayah || 'Mendeteksi alamat...'}</span>
                   </div>
                 </div>
 
@@ -526,6 +505,14 @@ export default function LaporPage() {
                     </div>
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={requestBrowserLocation}
+                  className="self-start font-mono text-[11px] text-[#800020] font-bold hover:underline flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> REFRESH GPS
+                </button>
               </div>
 
               {/* Step 3: Description */}

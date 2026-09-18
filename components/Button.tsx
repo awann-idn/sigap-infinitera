@@ -14,7 +14,7 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const baseStyles =
-    'h-[48px] px-8 font-mono text-[13px] font-bold tracking-[0.08em] uppercase inline-flex items-center justify-center transition-colors duration-150 border-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed select-none';
+    'h-[48px] px-5 sm:px-8 font-mono text-[12px] sm:text-[13px] text-center font-bold tracking-[0.08em] uppercase inline-flex items-center justify-center gap-2 transition-colors duration-150 border-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed select-none';
 
   const variants = {
     primary:

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import SectionHeader from '@/components/SectionHeader';
 import Card from '@/components/Card';
-import { HelpCircle, ChevronDown } from 'lucide-react';
+import { HelpCircle, ChevronDown, Newspaper } from 'lucide-react';
 
 export default function EdukasiPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -57,6 +57,41 @@ export default function EdukasiPage() {
     },
   ];
 
+  const berita = [
+    {
+      id: 1,
+      tag: 'KARHUTLA',
+      date: '17 SEPTEMBER 2026',
+      title: 'BPBD Sumatera Selatan Siagakan Regu Piket 24 Jam di Titik Rawan',
+      image: '/images/firefighter_action.png',
+      excerpt: 'Personel disiagakan di sejumlah kabupaten rawan, termasuk Ogan Ilir dan Ogan Komering Ilir.',
+    },
+    {
+      id: 2,
+      tag: 'PEMANTAUAN',
+      date: '16 SEPTEMBER 2026',
+      title: 'Deteksi Dini Titik Api Lahan Gambut Ogan Ilir Diperkuat',
+      image: '/images/drone_monitoring.png',
+      excerpt: 'Pemantauan udara dan laporan warga mempercepat pemetaan titik panas di lahan gambut.',
+    },
+    {
+      id: 3,
+      tag: 'PENCEGAHAN',
+      date: '15 SEPTEMBER 2026',
+      title: 'Sosialisasi Pembukaan Lahan Tanpa Bakar di Kecamatan Gandus',
+      image: '/images/canal_blocking_prevention.png',
+      excerpt: 'Warga diajari pembuatan sekatan kanal dan pengelolaan lahan tanpa pembakaran.',
+    },
+    {
+      id: 4,
+      tag: 'LINGKUNGAN',
+      date: '14 SEPTEMBER 2026',
+      title: 'Kualitas Udara Palembang Berangsur Membaik',
+      image: '/images/karhutla_smoke_forest.png',
+      excerpt: 'Penurunan jumlah titik api berdampak pada membaiknya kualitas udara kota.',
+    },
+  ];
+
   return (
     <div className="w-full py-12 md:py-16">
       <div className="max-w-[1440px] mx-auto px-5 lg:px-10">
@@ -92,6 +127,33 @@ export default function EdukasiPage() {
               </div>
             </Card>
           ))}
+        </div>
+
+        {/* Berita Section */}
+        <div className="mb-20">
+          <div className="flex items-center gap-3 font-mono text-[12px] text-[#800020] uppercase font-bold mb-6">
+            <Newspaper className="w-5 h-5 text-[#800020]" /> BERITA TERBARU
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {berita.map((b) => (
+              <Card key={b.id} className="flex flex-col justify-between border-2 border-[#800020]">
+                <div className="flex flex-col gap-3">
+                  <div className="relative aspect-[16/10] bg-[#F3E6D5] overflow-hidden border border-[#800020]">
+                    <img src={b.image} alt={b.title} className="w-full h-full object-cover" />
+                    <div className="absolute top-2 left-2 bg-[#800020] text-[#FFFFFF] font-mono text-[10px] uppercase font-bold px-2 py-1">
+                      {b.tag}
+                    </div>
+                  </div>
+                  <div className="font-mono text-[10px] text-[#8E95A3] font-bold">{b.date}</div>
+                  <h3 className="font-body text-[15px] font-bold text-[#272E3B] leading-snug">
+                    {b.title}
+                  </h3>
+                  <p className="font-body text-[13px] text-[#525866] leading-relaxed">{b.excerpt}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
 
         {/* FAQ Accordion Section */}

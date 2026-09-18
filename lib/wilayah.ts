@@ -1,3 +1,34 @@
+/**
+ * Menyederhanakan nama wilayah menjadi tingkat kota/kabupaten + provinsi.
+ * Contoh: "Kec. Gandus, Kota Palembang, Sumatera Selatan"
+ *      -> "Kota Palembang, Sumatera Selatan"
+ */
+export function normalizeWilayahCity(wilayah: string): string {
+  if (!wilayah) return 'Sumatera Selatan';
+
+  const parts = wilayah
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return 'Sumatera Selatan';
+
+  const province =
+    parts.find((part) => /sumatera selatan|sumsel/i.test(part)) || 'Sumatera Selatan';
+
+  const cityPart =
+    parts.find((part) => /^(kota|kab\.?|kabupaten)\b/i.test(part)) ||
+    parts.find((part) => /kota|kabupaten/i.test(part)) ||
+    (parts.length >= 2 ? parts[parts.length - 2] : parts[0]);
+
+  const cleaned = cityPart
+    .replace(/^kec\.?\s*/i, '')
+    .replace(/^kecamatan\s*/i, '')
+    .trim();
+
+  return `${cleaned}, ${province}`;
+}
+
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id`;
