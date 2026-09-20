@@ -15,6 +15,19 @@ export async function parseExifData(file: File): Promise<ExifData> {
       gps: true,
       tiff: true,
       exif: true,
+      // Explicit field picks for broader Android/iOS camera compatibility
+      pick: [
+        'GPSLatitude',
+        'GPSLongitude',
+        'GPSLatitudeRef',
+        'GPSLongitudeRef',
+        'latitude',
+        'longitude',
+        'DateTimeOriginal',
+        'CreateDate',
+        'Make',
+        'Model',
+      ],
     });
 
     if (!output) {

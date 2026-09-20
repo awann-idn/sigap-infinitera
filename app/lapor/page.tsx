@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Camera,
@@ -80,6 +80,9 @@ export default function LaporPage() {
   const [file, setFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [exifInfo, setExifInfo] = useState<ExifData | null>(null);
+  // Ref mirrors exifInfo so handleSubmit always reads the freshest EXIF
+  // even if React batches the setState and hasn't flushed yet.
+  const exifRef = useRef<ExifData | null>(null);
 
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
@@ -191,16 +194,34 @@ export default function LaporPage() {
 
     setFile(selectedFile);
 
-    // WAJIB LANGKAH A: Ekstraksi EXIF dari file ASLI terlebih dahulu menggunakan exifr
+    // ── LANGKAH 1: BACA EXIF DARI FILE ASLI ────────────────────────────────
+    // WAJIB dilakukan SEBELUM kompresi — canvas.toDataURL() menghapus semua EXIF.
+    console.log('[EXIF] Memulai ekstraksi dari file ASLI sebelum kompresi...');
     const parsed = await parseExifData(selectedFile);
+    console.log('[EXIF] Hasil ekstraksi:', {
+      hasGps: parsed.hasGps,
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      dateTimeOriginal: parsed.dateTimeOriginal,
+      make: parsed.make,
+      model: parsed.model,
+    });
+    if (!parsed.hasGps) {
+      console.warn('[EXIF] GPS tidak ditemukan di foto. Tingkat keyakinan akan TINJAUAN atau CURIGA.');
+    }
+    // Simpan ke state DAN ref agar handleSubmit selalu dapat nilai terbaru
     setExifInfo(parsed);
+    exifRef.current = parsed;
 
-    // WAJIB LANGKAH B & C: Setelah EXIF terekstraksi, kompres gambar di sisi klien (max 1280px, JPEG 0.8)
+    // ── LANGKAH 2: KOMPRESI GAMBAR ─────────────────────────────────────────
+    // Baru dijalankan SETELAH EXIF tersimpan.
+    console.log('[EXIF] Mulai kompresi canvas...');
     try {
       const compressedBase64 = await compressImageClient(selectedFile, 1280, 0.8);
+      console.log('[EXIF] Kompresi selesai. Ukuran base64:', Math.round(compressedBase64.length / 1024), 'KB');
       setPhotoPreview(compressedBase64);
     } catch (compErr) {
-      console.warn('Kompresi canvas gagal, fallback ke data URL mentah:', compErr);
+      console.warn('[EXIF] Kompresi canvas gagal, fallback ke data URL mentah:', compErr);
       const reader = new FileReader();
       reader.onload = (ev) => {
         setPhotoPreview(ev.target?.result as string);
@@ -213,6 +234,7 @@ export default function LaporPage() {
     setFile(null);
     setPhotoPreview(null);
     setExifInfo(null);
+    exifRef.current = null;
   };
 
   const handlePinDragEnd = async (lat: number, lng: number) => {
@@ -252,6 +274,10 @@ export default function LaporPage() {
     try {
       const photoPayload = photoPreview || '/images/karhutla_smoke_forest.png';
 
+      // Baca EXIF dari ref — dijamin nilai terbaru meski React belum flush state
+      const latestExif = exifRef.current;
+      console.log('[SUBMIT] EXIF saat submit:', latestExif);
+
       const payload = {
         foto: photoPayload,
         foto_url: photoPayload,
@@ -263,12 +289,12 @@ export default function LaporPage() {
         lng_gps: gpsLng,
         akurasi_gps: gpsAccuracy,
         // EXIF values come ONLY from the photo, never from browser GPS
-        lat_exif: exifInfo?.latitude ?? null,
-        lng_exif: exifInfo?.longitude ?? null,
-        exif_lat: exifInfo?.latitude ?? null,
-        exif_lng: exifInfo?.longitude ?? null,
-        date_time_original: exifInfo?.dateTimeOriginal ?? null,
-        waktu_jepret_exif: exifInfo?.dateTimeOriginal ?? null,
+        lat_exif: latestExif?.latitude ?? null,
+        lng_exif: latestExif?.longitude ?? null,
+        exif_lat: latestExif?.latitude ?? null,
+        exif_lng: latestExif?.longitude ?? null,
+        date_time_original: latestExif?.dateTimeOriginal ?? null,
+        waktu_jepret_exif: latestExif?.dateTimeOriginal ?? null,
         wilayah: wilayah || `${gpsLat.toFixed(4)}, ${gpsLng.toFixed(4)}`,
         deskripsi,
         sumber_koordinat: sumberKoordinat,
