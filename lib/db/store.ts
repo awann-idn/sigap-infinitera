@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { Redis } from '@upstash/redis';
-import { canonicalCityLabel } from '@/lib/wilayah';
+import { canonicalCityLabel, matchWilayahSumsel } from '@/lib/wilayah';
 import { type TingkatKeyakinan, isLuarWilayahSumsel, calculateTingkatKeyakinan } from '@/lib/geo';
 
 export type StatusVerifikasi =
@@ -52,8 +52,8 @@ export interface LaporanItem {
 
 export interface StatisticsData {
   totalTerverifikasi: number;
-  penangananSelesai: number;
-  wilayahTerbanyak: string;
+  sedangDitangani: number;
+  wilayahTerdampak: number;
 }
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'laporan.json');
@@ -931,27 +931,19 @@ export async function deleteLaporan(id: string): Promise<boolean> {
 function computeStats(
   rows: { wilayah?: string | null; status_penanganan?: string | null }[]
 ): StatisticsData {
-  const penangananSelesai = rows.filter((r) => r.status_penanganan === 'selesai').length;
+  const sedangDitangani = rows.filter((r) => r.status_penanganan === 'diproses').length;
 
-  const regionCounts: Record<string, number> = {};
+  const regionSet = new Set<string>();
   rows.forEach((r) => {
-    const reg = canonicalCityLabel(r.wilayah || '');
-    regionCounts[reg] = (regionCounts[reg] || 0) + 1;
-  });
-
-  let topRegion = '-';
-  let maxCount = 0;
-  Object.entries(regionCounts).forEach(([reg, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      topRegion = reg;
-    }
+    const wilayah = r.wilayah || '';
+    const id = matchWilayahSumsel(wilayah);
+    regionSet.add(id || canonicalCityLabel(wilayah));
   });
 
   return {
     totalTerverifikasi: rows.length,
-    penangananSelesai,
-    wilayahTerbanyak: rows.length > 0 ? topRegion : '-',
+    sedangDitangani,
+    wilayahTerdampak: regionSet.size,
   };
 }
 

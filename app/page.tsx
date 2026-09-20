@@ -208,25 +208,25 @@ export default async function LandingPage() {
 
             <div className="flex flex-col gap-2 md:px-8">
               <span className="font-mono text-[11px] tracking-[0.08em] text-[#272E3B] font-bold uppercase">
-                PENANGANAN SELESAI
+                SEDANG DITANGANI
               </span>
               <span className="font-display font-bold text-[clamp(48px,5vw,72px)] text-[#000000] leading-none">
-                {String(stats.penangananSelesai).padStart(3, '0')}
+                {String(stats.sedangDitangani).padStart(3, '0')}
               </span>
               <span className="font-body text-[14px] text-[#272E3B]">
-                Titik api terverifikasi yang sudah ditangani tim pemadam.
+                Titik api terverifikasi yang sedang ditangani tim pemadam.
               </span>
             </div>
 
             <div className="flex flex-col gap-2 md:px-8">
               <span className="font-mono text-[11px] tracking-[0.08em] text-[#272E3B] font-bold uppercase">
-                WILAYAH TERBANYAK
+                WILAYAH TERDAMPAK
               </span>
-              <span className="font-display font-bold text-[clamp(24px,3vw,36px)] text-[#000000] leading-tight mt-2">
-                {stats.wilayahTerbanyak}
+              <span className="font-display font-bold text-[clamp(48px,5vw,72px)] text-[#000000] leading-none">
+                {String(stats.wilayahTerdampak).padStart(2, '0')}
               </span>
               <span className="font-body text-[14px] text-[#272E3B]">
-                Frekuensi aduan tertinggi dalam 30 hari terakhir.
+                Kota/kabupaten dengan titik api terverifikasi.
               </span>
             </div>
           </div>
