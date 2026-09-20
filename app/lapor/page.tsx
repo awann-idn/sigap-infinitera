@@ -30,6 +30,52 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ),
 });
 
+/**
+ * Kompresi gambar di sisi klien:
+ * - Resize sisi terpanjang maksimal 1280px (menjaga rasio aspek)
+ * - Konversi ke format image/jpeg dengan quality 0.8
+ * - Menghasilkan Base64 Data URL hemat ukuran (~100-300 KB)
+ */
+function compressImageClient(file: File, maxDim = 1280, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas 2D context tidak tersedia'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function LaporPage() {
   const [file, setFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -145,16 +191,22 @@ export default function LaporPage() {
 
     setFile(selectedFile);
 
-    // Read file for preview
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setPhotoPreview(ev.target?.result as string);
-    };
-    reader.readAsDataURL(selectedFile);
-
-    // Parse EXIF from original file (no canvas re-render)
+    // WAJIB LANGKAH A: Ekstraksi EXIF dari file ASLI terlebih dahulu menggunakan exifr
     const parsed = await parseExifData(selectedFile);
     setExifInfo(parsed);
+
+    // WAJIB LANGKAH B & C: Setelah EXIF terekstraksi, kompres gambar di sisi klien (max 1280px, JPEG 0.8)
+    try {
+      const compressedBase64 = await compressImageClient(selectedFile, 1280, 0.8);
+      setPhotoPreview(compressedBase64);
+    } catch (compErr) {
+      console.warn('Kompresi canvas gagal, fallback ke data URL mentah:', compErr);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setPhotoPreview(ev.target?.result as string);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
   };
 
   const clearPhoto = () => {
@@ -198,12 +250,15 @@ export default function LaporPage() {
     setSubmitting(true);
 
     try {
-      const mockPhotoUrl = photoPreview || '/images/karhutla_smoke_forest.png';
+      const photoPayload = photoPreview || '/images/karhutla_smoke_forest.png';
 
       const payload = {
-        foto_url: mockPhotoUrl,
-        foto_tipe: file?.type,
-        foto_size: file?.size,
+        foto: photoPayload,
+        foto_url: photoPayload,
+        foto_tipe: 'image/jpeg',
+        foto_size: photoPayload.length,
+        lat: gpsLat,
+        lng: gpsLng,
         lat_gps: gpsLat,
         lng_gps: gpsLng,
         akurasi_gps: gpsAccuracy,
@@ -232,7 +287,7 @@ export default function LaporPage() {
         setSubmittedReport(data.data);
         setToastMessage({
           msg: 'LAPORAN TERKIRIM BERHASIL',
-          idCode: data.data.kode,
+          idCode: data.data.kode_laporan || data.data.kode,
           type: 'success',
         });
       } else {

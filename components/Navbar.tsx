@@ -1,13 +1,59 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Flame } from 'lucide-react';
+import { Menu, X, Flame, Shield } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
+
+  // Check staff session on mount and route change
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkSession = async () => {
+      // 1. Optimistic check from localStorage
+      try {
+        const localAuth = localStorage.getItem('sigap_auth');
+        if (localAuth) {
+          setIsStaff(true);
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2. Validate with server session endpoint
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            setIsStaff(Boolean(data.authenticated));
+            if (!data.authenticated) {
+              localStorage.removeItem('sigap_auth');
+            }
+          }
+        }
+      } catch {
+        // network issue, keep optimistic or false
+      }
+    };
+
+    checkSession();
+
+    const handleStorageChange = () => {
+      checkSession();
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [pathname]);
 
   const navLinks = [
     { href: '/', label: 'BERANDA' },
@@ -27,7 +73,7 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-6 lg:gap-8">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -45,14 +91,27 @@ export default function Navbar() {
             );
           })}
 
-          {/* Prominent High-Visibility "LAPOR KEBAKARAN" Button */}
-          <Link
-            href="/lapor"
-            className="h-[42px] px-5 bg-[#800020] text-[#FFFFFF] font-mono text-[13px] font-bold tracking-[0.06em] uppercase flex items-center gap-2 hover:bg-[#9E1B36] transition-colors border border-[#800020]"
-          >
-            <Flame className="w-4 h-4 text-[#D45060]" />
-            LAPOR KEBAKARAN
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* Tautan Dashboard Petugas: hanya muncul jika session petugas aktif */}
+            {isStaff && (
+              <Link
+                href="/dashboard"
+                className="h-[42px] px-4 bg-transparent text-[#800020] border-2 border-[#800020] font-mono text-[13px] font-bold tracking-[0.06em] uppercase flex items-center gap-2 hover:bg-[#800020] hover:text-[#FFFFFF] transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                DASHBOARD PETUGAS
+              </Link>
+            )}
+
+            {/* Prominent High-Visibility "LAPOR KEBAKARAN" Button */}
+            <Link
+              href="/lapor"
+              className="h-[42px] px-5 bg-[#800020] text-[#FFFFFF] font-mono text-[13px] font-bold tracking-[0.06em] uppercase flex items-center gap-2 hover:bg-[#9E1B36] transition-colors border border-[#800020]"
+            >
+              <Flame className="w-4 h-4 text-[#D45060]" />
+              LAPOR KEBAKARAN
+            </Link>
+          </div>
         </nav>
 
         {/* Mobile Menu Trigger */}
@@ -68,6 +127,21 @@ export default function Navbar() {
       {/* Mobile Nav Overlay */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-[#FFF9F2] border-b-2 border-[#000000] px-5 py-6 flex flex-col gap-4">
+          {/* Tautan Dashboard Petugas (Mobile) jika session aktif */}
+          {isStaff && (
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-3.5 bg-transparent border-2 border-[#800020] text-[#800020] font-mono text-[13px] font-bold tracking-[0.06em] uppercase flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#800020]" />
+                DASHBOARD PETUGAS
+              </span>
+              <span className="text-[12px] font-bold">→</span>
+            </Link>
+          )}
+
           <Link
             href="/lapor"
             onClick={() => setMobileMenuOpen(false)}

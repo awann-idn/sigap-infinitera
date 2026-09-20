@@ -66,6 +66,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    console.error('[API DELETE ERROR] ID:', params.id, 'Error:', error?.stack || error?.message || error);
     return NextResponse.json(
       { success: false, error: error.message || 'Gagal menghapus laporan' },
       { status: 500 }

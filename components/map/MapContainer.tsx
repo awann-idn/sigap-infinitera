@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LaporanItem } from '@/lib/db/store';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 export const SOUTH_SUMATRA_BOUNDS: [[number, number], [number, number]] = [
   [-5.5, 102.0],
@@ -91,7 +93,60 @@ export default function LeafletMapComponent({
 
       leafletRef.current = L;
       mapRef.current = map;
-      markerLayerRef.current = L.layerGroup().addTo(map);
+
+      // Inject custom cluster styles (maroon bg, cream text)
+      if (!document.getElementById('sigap-cluster-styles')) {
+        const style = document.createElement('style');
+        style.id = 'sigap-cluster-styles';
+        style.textContent = `
+          .sigap-cluster {
+            background: #800020;
+            border: 3px solid #5C0016;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFF9F2;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            box-shadow: 0 2px 8px rgba(128,0,32,0.45);
+            transition: transform 0.15s ease;
+          }
+          .sigap-cluster:hover { transform: scale(1.1); }
+          .sigap-cluster-sm  { width: 36px; height: 36px; }
+          .sigap-cluster-md  { width: 46px; height: 46px; font-size: 14px; }
+          .sigap-cluster-lg  { width: 58px; height: 58px; font-size: 16px; background: #5C0016; }
+          /* Hide the default MarkerCluster canvas blobs */
+          .leaflet-cluster-anim .leaflet-marker-icon,
+          .leaflet-cluster-anim .leaflet-marker-shadow { transition: transform 0.3s ease, opacity 0.3s ease; }
+          .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large,
+          .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { display: none !important; }
+        `;
+        document.head.appendChild(style);
+      }
+
+      // Use markerClusterGroup for automatic clustering
+      const clusterGroup = (L as any).markerClusterGroup({
+        maxClusterRadius: 60,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: (cluster: any) => {
+          const count = cluster.getChildCount();
+          let sizeClass = 'sigap-cluster-sm';
+          if (count >= 10) sizeClass = 'sigap-cluster-lg';
+          else if (count >= 5) sizeClass = 'sigap-cluster-md';
+          return (L as any).divIcon({
+            html: `<div class="sigap-cluster ${sizeClass}">${count}</div>`,
+            className: '',
+            iconSize: (L as any).point(0, 0),
+          });
+        },
+      });
+      clusterGroup.addTo(map);
+      markerLayerRef.current = clusterGroup;
 
       // Load South Sumatra Province boundary GeoJSON outline
       fetch('/data/sumsel.geojson')
@@ -168,7 +223,7 @@ export default function LeafletMapComponent({
         iconAnchor: [12, 12],
       });
 
-      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(layer);
+      const marker = (L as any).marker([lat, lng], { icon: customIcon });
 
       const popupContent = document.createElement('div');
       popupContent.className = 'flex flex-col gap-2 p-1 max-w-[260px] font-body text-[13px]';
@@ -192,6 +247,7 @@ export default function LeafletMapComponent({
 
       marker.bindPopup(popupContent);
       marker.on('click', () => onSelectRef.current?.(report));
+      layer.addLayer(marker);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, reportsSignature, roundCoords]);

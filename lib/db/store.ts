@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { Redis } from '@upstash/redis';
 import { normalizeWilayahCity } from '@/lib/wilayah';
 import type { TingkatKeyakinan } from '@/lib/geo';
 
@@ -14,29 +16,34 @@ export type StatusVerifikasi =
 
 export interface LaporanItem {
   id: string;
+  kode_laporan?: string;
   kode: string;
+  foto?: string;
   foto_url: string;
+  lat?: number;
+  lng?: number;
   lat_gps: number;
   lng_gps: number;
-  akurasi_gps?: number;
+  akurasi_gps?: number | null;
   lat_exif?: number | null;
   lng_exif?: number | null;
   exif_lat?: number | null;
   exif_lng?: number | null;
   jarak_exif_gps_m?: number | null;
   selisih_jarak?: number | null;
-  flag_manual: boolean;
+  flag_manual?: boolean;
   sumber_koordinat: 'gps' | 'manual';
   wilayah: string;
   deskripsi: string;
-  skala: 'KECIL' | 'SEDANG' | 'BESAR';
+  skala?: 'KECIL' | 'SEDANG' | 'BESAR';
   tingkat_keyakinan: TingkatKeyakinan;
   date_time_original?: string | null;
   waktu_jepret_exif?: string | null;
+  waktu_terima?: string;
   status_verifikasi: StatusVerifikasi;
   status_penanganan: 'menunggu' | 'diproses' | 'selesai';
   alasan_tidak_valid?: string | null;
-  petugas_id?: string;
+  petugas_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -47,63 +54,232 @@ export interface StatisticsData {
   wilayahTerbanyak: string;
 }
 
-const INITIAL_SEED: LaporanItem[] = [];
-
 const DATA_FILE = path.join(process.cwd(), 'data', 'laporan.json');
 
-function ensureDataFile(): void {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, '[]', 'utf-8');
-  }
-}
+// In-memory cache for fast read/write and fallback on serverless environments
+let memoryCache: LaporanItem[] | null = null;
+let dbInitialized = false;
 
-function readData(): LaporanItem[] {
+/**
+ * Membaca seed data awal dari data/laporan.json secara read-only.
+ * Memfilter keluar entri yang memiliki sumber_koordinat: 'manual'.
+ */
+function loadLocalSeedReports(): LaporanItem[] {
   try {
-    ensureDataFile();
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item: any) => {
-        let verif = item.status_verifikasi;
-        if (verif === 'belum-diverifikasi') verif = 'menunggu-tinjauan';
-        if (verif === 'spam') verif = 'tidak-valid';
-        return {
-          ...item,
-          status_verifikasi: verif || 'menunggu-tinjauan',
-        };
-      });
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item) => item.sumber_koordinat !== 'manual')
+          .map((item) => mapRawToLaporanItem(item));
+      }
     }
   } catch (err) {
-    console.error('[DATABASE ERROR] Gagal membaca data/laporan.json:', err);
+    console.warn('[STORAGE WARNING] Gagal membaca seed file lokal:', err);
   }
   return [];
 }
 
-function writeData(data: LaporanItem[]): void {
-  try {
-    ensureDataFile();
-    const serialized = JSON.stringify(data, null, 2);
-    // Write directly to file
-    fs.writeFileSync(DATA_FILE, serialized, 'utf-8');
-  } catch (err) {
-    console.error('[DATABASE ERROR] Gagal menyimpan data/laporan.json:', err);
-    throw new Error('Gagal menyimpan laporan ke penyimpanan persisten');
-  }
+/**
+ * Mapping baris data dari database / raw objek ke interface LaporanItem standar.
+ */
+function mapRawToLaporanItem(row: any): LaporanItem {
+  const id = row.id || crypto.randomUUID();
+  const kode = row.kode_laporan || row.kode || `SIGAP-${id.slice(0, 8)}`;
+  const lat = Number(row.lat ?? row.lat_gps ?? 0);
+  const lng = Number(row.lng ?? row.lng_gps ?? 0);
+  const foto = row.foto || row.foto_url || '';
+  const waktuTerima = row.waktu_terima
+    ? new Date(row.waktu_terima).toISOString()
+    : row.created_at
+    ? new Date(row.created_at).toISOString()
+    : new Date().toISOString();
+  const waktuJepret = row.waktu_jepret_exif
+    ? new Date(row.waktu_jepret_exif).toISOString()
+    : row.date_time_original
+    ? new Date(row.date_time_original).toISOString()
+    : null;
+
+  let statusVerif = row.status_verifikasi;
+  if (statusVerif === 'belum-diverifikasi') statusVerif = 'menunggu-tinjauan';
+  if (statusVerif === 'spam') statusVerif = 'tidak-valid';
+
+  return {
+    id,
+    kode,
+    kode_laporan: kode,
+    foto,
+    foto_url: foto,
+    lat,
+    lng,
+    lat_gps: lat,
+    lng_gps: lng,
+    akurasi_gps: row.akurasi_gps != null ? Number(row.akurasi_gps) : null,
+    exif_lat: row.exif_lat != null ? Number(row.exif_lat) : null,
+    exif_lng: row.exif_lng != null ? Number(row.exif_lng) : null,
+    lat_exif: row.exif_lat != null ? Number(row.exif_lat) : null,
+    lng_exif: row.exif_lng != null ? Number(row.exif_lng) : null,
+    waktu_jepret_exif: waktuJepret,
+    date_time_original: waktuJepret,
+    selisih_jarak: row.selisih_jarak != null ? Number(row.selisih_jarak) : null,
+    jarak_exif_gps_m: row.selisih_jarak != null ? Number(row.selisih_jarak) : null,
+    sumber_koordinat: row.sumber_koordinat === 'manual' ? 'manual' : 'gps',
+    flag_manual: row.flag_manual ?? false,
+    wilayah: row.wilayah || '',
+    deskripsi: row.deskripsi || '',
+    skala: row.skala || 'SEDANG',
+    tingkat_keyakinan: row.tingkat_keyakinan || 'TINJAUAN',
+    status_verifikasi: statusVerif || 'menunggu-tinjauan',
+    status_penanganan: row.status_penanganan || 'menunggu',
+    alasan_tidak_valid: row.alasan_tidak_valid || null,
+    petugas_id: row.petugas_id || null,
+    waktu_terima: waktuTerima,
+    created_at: waktuTerima,
+    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : waktuTerima,
+  };
 }
 
+// 1. Inisialisasi Klien Vercel Postgres / Neon
+function getNeonSql(): NeonQueryFunction<false, false> | null {
+  const connectionString =
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING;
+
+  if (connectionString && !connectionString.includes('dummy')) {
+    try {
+      return neon(connectionString);
+    } catch (e) {
+      console.warn('[NEON POSTGRES INIT ERROR]:', e);
+    }
+  }
+  return null;
+}
+
+// 2. Inisialisasi Klien Upstash Redis / Vercel KV
+function getUpstashRedis(): Redis | null {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (url && token) {
+    try {
+      return new Redis({ url, token });
+    } catch (e) {
+      console.warn('[UPSTASH REDIS INIT ERROR]:', e);
+    }
+  }
+  return null;
+}
+
+// 3. Inisialisasi Klien Supabase
 function getSupabase(): SupabaseClient | null {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (supabaseUrl && supabaseKey && !supabaseUrl.includes('your-supabase-project')) {
-    return createClient(supabaseUrl, supabaseKey);
+    try {
+      return createClient(supabaseUrl, supabaseKey);
+    } catch (e) {
+      console.warn('[SUPABASE INIT ERROR]:', e);
+    }
+  }
+  return null;
+}
+
+/**
+ * Memastikan tabel dan migrasi seed data berjalan pada koneksi database aktif.
+ */
+async function ensureDatabaseReady(): Promise<void> {
+  if (dbInitialized) return;
+
+  const sql = getNeonSql();
+  if (sql) {
+    try {
+      // Buat tabel laporan jika belum ada
+      await sql`
+        CREATE TABLE IF NOT EXISTS public.laporan (
+          id UUID PRIMARY KEY,
+          kode_laporan VARCHAR(50) UNIQUE NOT NULL,
+          waktu_terima TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          lat FLOAT NOT NULL,
+          lng FLOAT NOT NULL,
+          wilayah VARCHAR(255) NOT NULL,
+          exif_lat FLOAT,
+          exif_lng FLOAT,
+          waktu_jepret_exif TIMESTAMPTZ,
+          selisih_jarak INT,
+          akurasi_gps FLOAT,
+          sumber_koordinat VARCHAR(20) NOT NULL DEFAULT 'gps',
+          tingkat_keyakinan VARCHAR(20) NOT NULL DEFAULT 'TINJAUAN',
+          status_verifikasi VARCHAR(30) NOT NULL DEFAULT 'menunggu-tinjauan',
+          status_penanganan VARCHAR(30) NOT NULL DEFAULT 'menunggu',
+          alasan_tidak_valid TEXT,
+          deskripsi TEXT,
+          foto TEXT NOT NULL,
+          kode VARCHAR(50),
+          lat_gps FLOAT,
+          lng_gps FLOAT,
+          foto_url TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `;
+
+      // Cek apakah tabel masih kosong, jika ya lakukan migrasi seed data (tanpa entri manual)
+      const countResult = await sql`SELECT COUNT(*)::int as total FROM public.laporan`;
+      const count = countResult[0]?.total || 0;
+
+      if (count === 0) {
+        console.log('[DATABASE SEED] Tabel laporan kosong. Memulai migrasi seed data ke Postgres...');
+        const seeds = loadLocalSeedReports();
+        for (const s of seeds) {
+          await sql`
+            INSERT INTO public.laporan (
+              id, kode_laporan, waktu_terima, lat, lng, wilayah,
+              exif_lat, exif_lng, waktu_jepret_exif, selisih_jarak,
+              akurasi_gps, sumber_koordinat, tingkat_keyakinan,
+              status_verifikasi, status_penanganan, alasan_tidak_valid,
+              deskripsi, foto, kode, lat_gps, lng_gps, foto_url, created_at, updated_at
+            ) VALUES (
+              ${s.id}, ${s.kode}, ${s.created_at}, ${s.lat_gps}, ${s.lng_gps}, ${s.wilayah},
+              ${s.exif_lat ?? null}, ${s.exif_lng ?? null}, ${s.waktu_jepret_exif ?? null}, ${s.selisih_jarak ?? null},
+              ${s.akurasi_gps ?? null}, ${s.sumber_koordinat}, ${s.tingkat_keyakinan},
+              ${s.status_verifikasi}, ${s.status_penanganan}, ${s.alasan_tidak_valid ?? null},
+              ${s.deskripsi || ''}, ${s.foto_url}, ${s.kode}, ${s.lat_gps}, ${s.lng_gps}, ${s.foto_url}, ${s.created_at}, ${s.updated_at}
+            )
+            ON CONFLICT (id) DO NOTHING
+          `;
+        }
+        console.log(`[DATABASE SEED] Sukses memigrasikan ${seeds.length} laporan seed ke Postgres.`);
+      }
+      dbInitialized = true;
+      return;
+    } catch (err) {
+      console.error('[DATABASE SETUP ERROR] Gagal inisialisasi tabel Postgres:', err);
+    }
   }
 
-  return null;
+  const redis = getUpstashRedis();
+  if (redis) {
+    try {
+      const exists = await redis.exists('sigap:laporan:list');
+      if (!exists) {
+        const seeds = loadLocalSeedReports();
+        if (seeds.length > 0) {
+          await redis.set('sigap:laporan:list', JSON.stringify(seeds));
+          console.log(`[UPSTASH REDIS] Sukses memigrasikan ${seeds.length} seed data ke Redis.`);
+        }
+      }
+      dbInitialized = true;
+      return;
+    } catch (err) {
+      console.error('[UPSTASH REDIS ERROR] Gagal inisialisasi Redis:', err);
+    }
+  }
+
+  dbInitialized = true;
 }
 
 export interface LaporanQueryOptions {
@@ -111,19 +287,88 @@ export interface LaporanQueryOptions {
   onlyPublished?: boolean;
 }
 
+/**
+ * Mengambil daftar seluruh laporan dari database aktif (Postgres / Upstash / Supabase / Cache).
+ */
 export async function getLaporanList(options: LaporanQueryOptions = {}): Promise<LaporanItem[]> {
   const { onlyVerified = false, onlyPublished = false } = options;
-  const allReports = readData();
+  await ensureDatabaseReady();
+
+  let reports: LaporanItem[] = [];
+
+  // 1. Prioritas Vercel Postgres / Neon
+  const sql = getNeonSql();
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT * FROM public.laporan
+        ORDER BY waktu_terima DESC
+      `;
+      reports = rows.map((r) => mapRawToLaporanItem(r));
+    } catch (err) {
+      console.error('[NEON GET ERROR] Gagal query Postgres, fallback ke memori:', err);
+    }
+  }
+
+  // 2. Prioritas Upstash Redis jika Postgres tidak ada
+  if (reports.length === 0) {
+    const redis = getUpstashRedis();
+    if (redis) {
+      try {
+        const raw = await redis.get<string | LaporanItem[]>('sigap:laporan:list');
+        if (raw) {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (Array.isArray(parsed)) {
+            reports = parsed.map((item) => mapRawToLaporanItem(item));
+          }
+        }
+      } catch (err) {
+        console.error('[UPSTASH GET ERROR] Gagal query Redis:', err);
+      }
+    }
+  }
+
+  // 3. Prioritas Supabase jika dikonfigurasi
+  if (reports.length === 0) {
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('laporan')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          reports = data.map((item) => mapRawToLaporanItem(item));
+        }
+      } catch (err) {
+        console.warn('[SUPABASE GET ERROR]:', err);
+      }
+    }
+  }
+
+  // 4. Fallback ke Memory Cache / Local Seed (read-only safe)
+  if (reports.length === 0) {
+    if (!memoryCache) {
+      memoryCache = loadLocalSeedReports();
+    }
+    reports = [...memoryCache];
+  } else {
+    // Sinkronkan ke cache memori lokal
+    memoryCache = [...reports];
+  }
 
   if (onlyPublished) {
     // Publik hanya menampilkan laporan yang sudah terverifikasi
     // Koordinat dibulatkan ke presisi ±100 meter (3 desimal) untuk melindungi privasi properti
-    return allReports
+    return reports
       .filter((item) => item.status_verifikasi === 'terverifikasi')
       .map((item) => ({
         ...item,
         lat_gps: Math.round(item.lat_gps * 1000) / 1000,
         lng_gps: Math.round(item.lng_gps * 1000) / 1000,
+        lat: Math.round((item.lat ?? item.lat_gps) * 1000) / 1000,
+        lng: Math.round((item.lng ?? item.lng_gps) * 1000) / 1000,
         lat_exif: undefined,
         lng_exif: undefined,
         exif_lat: undefined,
@@ -132,30 +377,34 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
   }
 
   return onlyVerified
-    ? allReports.filter((item) => item.status_verifikasi === 'terverifikasi')
-    : allReports;
+    ? reports.filter((item) => item.status_verifikasi === 'terverifikasi')
+    : reports;
 }
 
+/**
+ * Menambahkan laporan baru ke database Vercel.
+ */
 export async function addLaporan(
   laporan: Omit<LaporanItem, 'id' | 'kode' | 'created_at' | 'updated_at'>
 ): Promise<LaporanItem> {
-  const allReports = readData();
+  await ensureDatabaseReady();
 
-  // 1. Generate unique ID using UUID
+  // 1. Generate unique UUID
   const id = crypto.randomUUID();
 
-  // 2. Calculate unique sequential kode: SIGAP-YYYYMMDD-NNN based on actual reports today
+  // 2. Generate kode laporan berurutan: SIGAP-YYYYMMDD-NNN
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
   const datePrefix = `SIGAP-${y}${m}${d}-`;
 
-  // Find max sequence number strictly for reports on this exact date
+  const existing = await getLaporanList();
   let maxSeq = 0;
-  for (const item of allReports) {
-    if (item.kode && item.kode.startsWith(datePrefix)) {
-      const suffix = item.kode.slice(datePrefix.length);
+  for (const item of existing) {
+    const k = item.kode_laporan || item.kode;
+    if (k && k.startsWith(datePrefix)) {
+      const suffix = k.slice(datePrefix.length);
       const num = parseInt(suffix, 10);
       if (!isNaN(num) && num > maxSeq) {
         maxSeq = num;
@@ -167,16 +416,25 @@ export async function addLaporan(
   const kode = `${datePrefix}${String(nextSeq).padStart(3, '0')}`;
   const nowIso = now.toISOString();
 
-  // 3. Populate standard fields and aliases
+  const latGps = Number(laporan.lat_gps ?? (laporan as any).lat ?? 0);
+  const lngGps = Number(laporan.lng_gps ?? (laporan as any).lng ?? 0);
   const latExif = laporan.lat_exif ?? laporan.exif_lat ?? null;
   const lngExif = laporan.lng_exif ?? laporan.exif_lng ?? null;
   const jarakM = laporan.jarak_exif_gps_m ?? laporan.selisih_jarak ?? null;
   const dateTime = laporan.date_time_original ?? laporan.waktu_jepret_exif ?? null;
+  const fotoPayload = (laporan as any).foto || laporan.foto_url;
 
   const newItem: LaporanItem = {
     ...laporan,
     id,
     kode,
+    kode_laporan: kode,
+    foto: fotoPayload,
+    foto_url: fotoPayload,
+    lat: latGps,
+    lng: lngGps,
+    lat_gps: latGps,
+    lng_gps: lngGps,
     lat_exif: latExif,
     lng_exif: lngExif,
     exif_lat: latExif,
@@ -185,44 +443,107 @@ export async function addLaporan(
     selisih_jarak: jarakM,
     date_time_original: dateTime,
     waktu_jepret_exif: dateTime,
+    waktu_terima: nowIso,
     created_at: nowIso,
     updated_at: nowIso,
+    status_verifikasi: laporan.status_verifikasi || 'menunggu-tinjauan',
+    status_penanganan: laporan.status_penanganan || 'menunggu',
+    sumber_koordinat: laporan.sumber_koordinat || 'gps',
+    tingkat_keyakinan: laporan.tingkat_keyakinan || 'TINJAUAN',
   };
 
-  // 4. TRUE INSERT (unshift new report into persistent array)
-  allReports.unshift(newItem);
-  writeData(allReports);
+  let savedSuccessfully = false;
 
-  // 5. Best-effort background sync to Supabase if configured (omit columns not in remote schema)
+  // 1. Simpan ke Vercel Postgres / Neon
+  const sql = getNeonSql();
+  if (sql) {
+    try {
+      const inserted = await sql`
+        INSERT INTO public.laporan (
+          id, kode_laporan, waktu_terima, lat, lng, wilayah,
+          exif_lat, exif_lng, waktu_jepret_exif, selisih_jarak,
+          akurasi_gps, sumber_koordinat, tingkat_keyakinan,
+          status_verifikasi, status_penanganan, alasan_tidak_valid,
+          deskripsi, foto, kode, lat_gps, lng_gps, foto_url, created_at, updated_at
+        ) VALUES (
+          ${newItem.id}, ${newItem.kode}, ${newItem.created_at}, ${newItem.lat_gps}, ${newItem.lng_gps}, ${newItem.wilayah},
+          ${newItem.exif_lat}, ${newItem.exif_lng}, ${newItem.waktu_jepret_exif}, ${newItem.selisih_jarak},
+          ${newItem.akurasi_gps ?? null}, ${newItem.sumber_koordinat}, ${newItem.tingkat_keyakinan},
+          ${newItem.status_verifikasi}, ${newItem.status_penanganan}, ${newItem.alasan_tidak_valid ?? null},
+          ${newItem.deskripsi || ''}, ${newItem.foto_url}, ${newItem.kode}, ${newItem.lat_gps}, ${newItem.lng_gps}, ${newItem.foto_url}, ${newItem.created_at}, ${newItem.updated_at}
+        )
+        RETURNING *
+      `;
+      if (inserted && inserted.length > 0) {
+        savedSuccessfully = true;
+        console.log(`[NEON POSTGRES SUCCESS] Laporan tersimpan ID: ${newItem.id}, Kode: ${newItem.kode}`);
+      }
+    } catch (pgError: any) {
+      console.error('[NEON POSTGRES INSERT ERROR]:', pgError?.message || pgError);
+    }
+  }
+
+  // 2. Simpan ke Upstash Redis jika tersedia
+  const redis = getUpstashRedis();
+  if (redis) {
+    try {
+      const current = await getLaporanList();
+      const updatedList = [newItem, ...current.filter((item) => item.id !== newItem.id)];
+      await redis.set('sigap:laporan:list', JSON.stringify(updatedList));
+      savedSuccessfully = true;
+      console.log(`[UPSTASH REDIS SUCCESS] Laporan tersimpan ID: ${newItem.id}`);
+    } catch (redisError: any) {
+      console.error('[UPSTASH REDIS INSERT ERROR]:', redisError?.message || redisError);
+    }
+  }
+
+  // 3. Simpan ke Supabase jika tersedia
   const supabase = getSupabase();
   if (supabase) {
     try {
-      const supabasePayload: Record<string, any> = {
-        id: newItem.id,
-        kode: newItem.kode,
-        foto_url: newItem.foto_url,
-        lat_gps: newItem.lat_gps,
-        lng_gps: newItem.lng_gps,
-        lat_exif: newItem.lat_exif,
-        lng_exif: newItem.lng_exif,
-        jarak_exif_gps_m: newItem.jarak_exif_gps_m,
-        flag_manual: newItem.flag_manual,
-        wilayah: newItem.wilayah,
-        deskripsi: newItem.deskripsi,
-        skala: newItem.skala,
-        status_verifikasi: newItem.status_verifikasi,
-        status_penanganan: newItem.status_penanganan,
-        created_at: newItem.created_at,
-        updated_at: newItem.updated_at,
-      };
-      supabase.from('laporan').insert([supabasePayload]).then(({ error }) => {
-        if (error) {
-          console.warn('[SUPABASE SYNC WARNING] Gagal sync ke remote Supabase:', error.message);
-        }
-      });
-    } catch (e) {
-      console.warn('[SUPABASE SYNC WARNING] Supabase sync exception:', e);
+      const { error } = await supabase.from('laporan').insert([
+        {
+          id: newItem.id,
+          kode: newItem.kode,
+          foto_url: newItem.foto_url,
+          lat_gps: newItem.lat_gps,
+          lng_gps: newItem.lng_gps,
+          lat_exif: newItem.lat_exif,
+          lng_exif: newItem.lng_exif,
+          jarak_exif_gps_m: newItem.jarak_exif_gps_m,
+          flag_manual: newItem.flag_manual,
+          wilayah: newItem.wilayah,
+          deskripsi: newItem.deskripsi,
+          skala: newItem.skala,
+          status_verifikasi: newItem.status_verifikasi,
+          status_penanganan: newItem.status_penanganan,
+          created_at: newItem.created_at,
+          updated_at: newItem.updated_at,
+        },
+      ]);
+      if (!error) {
+        savedSuccessfully = true;
+      }
+    } catch (sbError: any) {
+      console.warn('[SUPABASE INSERT WARNING]:', sbError?.message || sbError);
     }
+  }
+
+  // 4. Update memory cache (read-only safe fallback)
+  if (!memoryCache) {
+    memoryCache = existing;
+  }
+  memoryCache = [newItem, ...memoryCache.filter((item) => item.id !== newItem.id)];
+
+  // Coba tulis ke disk hanya jika filesystem writable (lingkungan dev lokal)
+  try {
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    if (!isVercel) {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(memoryCache, null, 2), 'utf-8');
+    }
+  } catch (fsErr) {
+    // Pada Vercel (read-only filesystem), abaikan error EROFS karena data sudah berada di DB/memori
+    console.warn('[STORAGE NOTICE] Filesystem bersifat read-only (Vercel). Data disimpan di database/memori.');
   }
 
   return newItem;
@@ -239,70 +560,156 @@ export type LaporanUpdate = Partial<
   >
 >;
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-}
-
+/**
+ * Memperbarui status / deskripsi laporan di database aktif.
+ */
 export async function updateLaporan(
   id: string,
   fields: LaporanUpdate
 ): Promise<LaporanItem | null> {
-  const allReports = readData();
-  const index = allReports.findIndex((item) => item.id === id || item.kode === id);
-  if (index === -1) return null;
+  await ensureDatabaseReady();
 
-  const updatedItem: LaporanItem = {
-    ...allReports[index],
-    ...fields,
-    updated_at: new Date().toISOString(),
-  };
-
-  allReports[index] = updatedItem;
-  writeData(allReports);
-
-  // Best effort sync to Supabase
-  const supabase = getSupabase();
-  if (supabase) {
+  // 1. Update di Postgres / Neon
+  const sql = getNeonSql();
+  if (sql) {
     try {
-      const updates = { ...fields, updated_at: updatedItem.updated_at };
-      let query = supabase.from('laporan').update(updates);
-      query = isUuid(id) ? query.eq('id', id) : query.eq('kode', id);
-      query.then(({ error }) => {
-        if (error) console.warn('[SUPABASE SYNC WARNING] Gagal update remote:', error.message);
-      });
-    } catch (e) {
-      console.warn('[SUPABASE SYNC WARNING] Supabase update exception:', e);
+      const existing = await sql`SELECT * FROM public.laporan WHERE id = ${id} OR kode = ${id} OR kode_laporan = ${id}`;
+      if (existing && existing.length > 0) {
+        const row = existing[0];
+        const statusVerif = fields.status_verifikasi ?? row.status_verifikasi;
+        const statusPenanganan = fields.status_penanganan ?? row.status_penanganan;
+        const deskripsi = fields.deskripsi ?? row.deskripsi;
+        const wilayah = fields.wilayah ?? row.wilayah;
+        const alasan = fields.alasan_tidak_valid !== undefined ? fields.alasan_tidak_valid : row.alasan_tidak_valid;
+        const updated_at = new Date().toISOString();
+
+        const updatedRows = await sql`
+          UPDATE public.laporan
+          SET status_verifikasi = ${statusVerif},
+              status_penanganan = ${statusPenanganan},
+              deskripsi = ${deskripsi},
+              wilayah = ${wilayah},
+              alasan_tidak_valid = ${alasan},
+              updated_at = ${updated_at}
+          WHERE id = ${row.id}
+          RETURNING *
+        `;
+        if (updatedRows && updatedRows.length > 0) {
+          const updatedItem = mapRawToLaporanItem(updatedRows[0]);
+          if (memoryCache) {
+            memoryCache = memoryCache.map((item) => (item.id === updatedItem.id ? updatedItem : item));
+          }
+          return updatedItem;
+        }
+      }
+    } catch (err) {
+      console.error('[NEON UPDATE ERROR]:', err);
     }
   }
 
-  return updatedItem;
+  // 2. Update di Redis jika Postgres tidak aktif
+  const redis = getUpstashRedis();
+  if (redis) {
+    try {
+      const list = await getLaporanList();
+      const idx = list.findIndex((item) => item.id === id || item.kode === id);
+      if (idx !== -1) {
+        list[idx] = {
+          ...list[idx],
+          ...fields,
+          updated_at: new Date().toISOString(),
+        };
+        await redis.set('sigap:laporan:list', JSON.stringify(list));
+        memoryCache = list;
+        return list[idx];
+      }
+    } catch (err) {
+      console.error('[UPSTASH UPDATE ERROR]:', err);
+    }
+  }
+
+  // 3. Fallback memory
+  if (memoryCache) {
+    const idx = memoryCache.findIndex((item) => item.id === id || item.kode === id);
+    if (idx !== -1) {
+      memoryCache[idx] = {
+        ...memoryCache[idx],
+        ...fields,
+        updated_at: new Date().toISOString(),
+      };
+      return memoryCache[idx];
+    }
+  }
+
+  return null;
 }
 
+/**
+ * Menghapus laporan dari database aktif (Postgres / Upstash / Supabase).
+ */
 export async function deleteLaporan(id: string): Promise<boolean> {
-  const allReports = readData();
-  const index = allReports.findIndex((item) => item.id === id || item.kode === id);
-  if (index === -1) return false;
+  await ensureDatabaseReady();
+  let deleted = false;
 
-  allReports.splice(index, 1);
-  writeData(allReports);
-
-  // Best effort sync to Supabase
-  const supabase = getSupabase();
-  if (supabase) {
+  // 1. Delete dari Postgres / Neon
+  const sql = getNeonSql();
+  if (sql) {
     try {
-      let query = supabase.from('laporan').delete();
-      query = isUuid(id) ? query.eq('id', id) : query.eq('kode', id);
-      query.then(({ error }) => {
-        if (error) console.warn('[SUPABASE SYNC WARNING] Gagal delete remote:', error.message);
-      });
-    } catch (e) {
-      console.warn('[SUPABASE SYNC WARNING] Supabase delete exception:', e);
+      const res = await sql`
+        DELETE FROM public.laporan
+        WHERE id = ${id} OR kode = ${id} OR kode_laporan = ${id}
+        RETURNING id
+      `;
+      if (res && res.length > 0) {
+        deleted = true;
+        console.log(`[NEON DELETE SUCCESS] Laporan ID ${id} dihapus.`);
+      }
+    } catch (err) {
+      console.error('[NEON DELETE ERROR]:', err);
     }
   }
 
-  return true;
+  // 2. Delete dari Upstash Redis
+  const redis = getUpstashRedis();
+  if (redis) {
+    try {
+      const list = await getLaporanList();
+      const filtered = list.filter((item) => item.id !== id && item.kode !== id);
+      if (filtered.length !== list.length) {
+        await redis.set('sigap:laporan:list', JSON.stringify(filtered));
+        deleted = true;
+        console.log(`[UPSTASH DELETE SUCCESS] Laporan ID ${id} dihapus dari Redis.`);
+      }
+    } catch (err) {
+      console.error('[UPSTASH DELETE ERROR]:', err);
+    }
+  }
+
+  // 3. Delete dari Supabase jika ada
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      await supabase.from('laporan').delete().or(`id.eq.${id},kode.eq.${id}`);
+    } catch (e) {
+      console.warn('[SUPABASE DELETE WARNING]:', e);
+    }
+  }
+
+  // 4. Update memory cache
+  if (memoryCache) {
+    const initialLen = memoryCache.length;
+    memoryCache = memoryCache.filter((item) => item.id !== id && item.kode !== id);
+    if (memoryCache.length < initialLen) {
+      deleted = true;
+    }
+  }
+
+  return deleted;
 }
 
+/**
+ * Menghitung ringkasan statistik terverifikasi & wilayah teratas.
+ */
 export async function getStatistics(): Promise<StatisticsData> {
   const list = await getLaporanList({ onlyVerified: true });
   const penangananSelesai = list.filter((item) => item.status_penanganan === 'selesai').length;
@@ -325,6 +732,6 @@ export async function getStatistics(): Promise<StatisticsData> {
   return {
     totalTerverifikasi: list.length,
     penangananSelesai,
-    wilayahTerbanyak: list.length === 0 ? '-' : topRegion,
+    wilayahTerbanyak: list.length > 0 ? topRegion : '-',
   };
 }

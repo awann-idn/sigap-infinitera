@@ -53,8 +53,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+    const foto = body.foto || body.foto_url;
+    const latRaw = body.lat ?? body.lat_gps;
+    const lngRaw = body.lng ?? body.lng_gps;
 
-    if (!body.foto_url || body.lat_gps === undefined || body.lng_gps === undefined) {
+    if (!foto || latRaw === undefined || lngRaw === undefined) {
       return NextResponse.json(
         { success: false, error: 'Foto dan koordinat GPS wajib diisi' },
         { status: 400 }
@@ -70,12 +73,12 @@ export async function POST(request: Request) {
     let photoType = body.foto_tipe ? String(body.foto_tipe).toLowerCase() : undefined;
     let photoSize = body.foto_size != null ? Number(body.foto_size) : undefined;
 
-    if (typeof body.foto_url === 'string' && body.foto_url.startsWith('data:')) {
-      const match = body.foto_url.match(/^data:([^;]+);base64,/i);
+    if (typeof foto === 'string' && foto.startsWith('data:')) {
+      const match = foto.match(/^data:([^;]+);base64,/i);
       if (match) {
         photoType = match[1].toLowerCase();
       }
-      const base64Data = body.foto_url.replace(/^data:[^;]+;base64,/i, '');
+      const base64Data = foto.replace(/^data:[^;]+;base64,/i, '');
       photoSize = Buffer.from(base64Data, 'base64').length;
     }
 
@@ -99,8 +102,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const latGps = Number(body.lat_gps);
-    const lngGps = Number(body.lng_gps);
+    const latGps = Number(latRaw);
+    const lngGps = Number(lngRaw);
     requestCoordinates = { lat: latGps, lng: lngGps };
 
     const akurasiGps = body.akurasi_gps != null ? Number(body.akurasi_gps) : undefined;
@@ -135,7 +138,10 @@ export async function POST(request: Request) {
     });
 
     const newReport = await addLaporan({
-      foto_url: body.foto_url,
+      foto: foto,
+      foto_url: foto,
+      lat: latGps,
+      lng: lngGps,
       lat_gps: latGps,
       lng_gps: lngGps,
       akurasi_gps: akurasiGps,
@@ -164,7 +170,7 @@ export async function POST(request: Request) {
 
     // Log successful persistence
     console.log(
-      `[LAPORAN BERHASIL DISIMPAN] ID: ${newReport.id} | Kode: ${newReport.kode} | Waktu: ${newReport.created_at} | Koordinat: (${newReport.lat_gps}, ${newReport.lng_gps}) | Tingkat: ${newReport.tingkat_keyakinan} | Status: BERHASIL`
+      `[LAPORAN BERHASIL DISIMPAN] ID: ${newReport.id} | Kode: ${newReport.kode_laporan || newReport.kode} | Waktu: ${newReport.created_at} | Koordinat: (${newReport.lat_gps}, ${newReport.lng_gps}) | Tingkat: ${newReport.tingkat_keyakinan} | Status: BERHASIL`
     );
 
     return NextResponse.json({ success: true, data: newReport }, { status: 201 });
@@ -172,11 +178,15 @@ export async function POST(request: Request) {
     console.error(
       `[LAPORAN GAGAL DISIMPAN] Waktu: ${new Date().toISOString()} | Koordinat: (${requestCoordinates.lat}, ${
         requestCoordinates.lng
-      }) | Error: ${error?.message || error} | Status: GAGAL`
+      }) | Detail Error:`,
+      error?.stack || error?.message || error
     );
 
     return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menyimpan laporan ke database' },
+      {
+        success: false,
+        error: error?.message ? `Gagal menyimpan laporan: ${error.message}` : 'Gagal menyimpan laporan ke database',
+      },
       { status: 500 }
     );
   }
