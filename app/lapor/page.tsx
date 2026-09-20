@@ -11,6 +11,9 @@ import {
   Trash2,
   AlertTriangle,
   AlertCircle,
+  SwitchCamera,
+  X,
+  Upload,
 } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 import Button from '@/components/Button';
@@ -84,6 +87,21 @@ export default function LaporPage() {
   // even if React batches the setState and hasn't flushed yet.
   const exifRef = useRef<ExifData | null>(null);
 
+  // Perangkat & mode pengujian
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isDevMode, setIsDevMode] = useState<boolean>(false);
+  const [hasWebcam, setHasWebcam] = useState<boolean | null>(null);
+
+  // Modal kamera desktop (Webcam)
+  const [isWebcamOpen, setIsWebcamOpen] = useState<boolean>(false);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
+  const [webcamError, setWebcamError] = useState<string | null>(null);
+  const [isStartingCamera, setIsStartingCamera] = useState<boolean>(false);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
+
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
@@ -101,6 +119,32 @@ export default function LaporPage() {
 
   useEffect(() => {
     requestBrowserLocation();
+
+    if (typeof window !== 'undefined') {
+      // 1. Deteksi Mode Pengujian (?dev=1)
+      const params = new URLSearchParams(window.location.search);
+      setIsDevMode(params.get('dev') === '1');
+
+      // 2. Deteksi Mobile Device
+      const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(mobileCheck);
+
+      // 3. Deteksi Kamera/Webcam pada Desktop
+      if (!mobileCheck && navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+        navigator.mediaDevices.enumerateDevices()
+          .then((devices) => {
+            const videoDevs = devices.filter((d) => d.kind === 'videoinput');
+            setHasWebcam(videoDevs.length > 0);
+          })
+          .catch(() => {
+            setHasWebcam(false);
+          });
+      }
+    }
+
+    return () => {
+      stopWebcamStream();
+    };
   }, []);
 
   const requestBrowserLocation = () => {
@@ -230,11 +274,142 @@ export default function LaporPage() {
     }
   };
 
+  const stopWebcamStream = () => {
+    if (webcamStreamRef.current) {
+      webcamStreamRef.current.getTracks().forEach((track) => track.stop());
+      webcamStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const openWebcamModal = async (deviceId?: string) => {
+    setIsWebcamOpen(true);
+    setIsStartingCamera(true);
+    setWebcamError(null);
+
+    stopWebcamStream();
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Browser Anda tidak mendukung akses kamera langsung (MediaDevices API).');
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: deviceId
+          ? { deviceId: { exact: deviceId } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      };
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (errFallback) {
+        // Fallback jika constraint resolusi tidak didukung
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
+      webcamStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // Perbarui daftar kamera setelah izin diberikan
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+      setVideoDevices(videoInputs);
+
+      if (videoInputs.length > 0) {
+        const currentTrack = stream.getVideoTracks()[0];
+        const currentSettings = currentTrack?.getSettings?.();
+        if (currentSettings?.deviceId) {
+          const idx = videoInputs.findIndex((d) => d.deviceId === currentSettings.deviceId);
+          if (idx !== -1) setCurrentDeviceIndex(idx);
+        }
+      }
+    } catch (err: any) {
+      console.error('Gagal mengakses kamera:', err);
+      let errorMsg = 'Gagal mengakses kamera.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMsg = 'Izin akses kamera ditolak. Silakan izinkan akses kamera di pengaturan browser Anda.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMsg = 'Tidak ditemukan perangkat webcam pada komputer/laptop ini.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMsg = 'Kamera sedang digunakan oleh aplikasi lain.';
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      setWebcamError(errorMsg);
+    } finally {
+      setIsStartingCamera(false);
+    }
+  };
+
+  const closeWebcamModal = () => {
+    stopWebcamStream();
+    setIsWebcamOpen(false);
+    setWebcamError(null);
+  };
+
+  const switchWebcamDevice = () => {
+    if (videoDevices.length <= 1) return;
+    const nextIndex = (currentDeviceIndex + 1) % videoDevices.length;
+    setCurrentDeviceIndex(nextIndex);
+    openWebcamModal(videoDevices[nextIndex].deviceId);
+  };
+
+  const captureWebcamPhoto = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const canvas = document.createElement('canvas');
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    // Buat objek File untuk form submission
+    const byteString = atob(dataUrl.split(',')[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ab], { type: 'image/jpeg' });
+    const capturedFile = new File([blob], `webcam-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+    setFile(capturedFile);
+    setPhotoPreview(dataUrl);
+
+    // PENTING: Foto hasil webcam desktop tidak memiliki EXIF.
+    // Pastikan sistem menanganinya sebagai "EXIF tidak tersedia" dan tingkat keyakinan TINJAUAN — jangan diisi nilai apa pun dari GPS browser.
+    console.log('[WEBCAM] Foto diambil dari webcam. EXIF diatur NULL (TINJAUAN).');
+    setExifInfo(null);
+    exifRef.current = null;
+
+    closeWebcamModal();
+  };
+
+  useEffect(() => {
+    if (isWebcamOpen && videoRef.current && webcamStreamRef.current) {
+      videoRef.current.srcObject = webcamStreamRef.current;
+    }
+  }, [isWebcamOpen, isStartingCamera]);
+
   const clearPhoto = () => {
     setFile(null);
     setPhotoPreview(null);
     setExifInfo(null);
     exifRef.current = null;
+    closeWebcamModal();
   };
 
   const handlePinDragEnd = async (lat: number, lng: number) => {
@@ -454,24 +629,72 @@ export default function LaporPage() {
                     <div className="w-12 h-12 bg-[#FFF9F2] border border-[#000000] flex items-center justify-center text-[#000000]">
                       <Camera className="w-5 h-5 text-[#000000]" />
                     </div>
-                    <label className="h-[44px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold hover:bg-[#272E3B] transition-colors cursor-pointer inline-flex items-center justify-center">
-                      AMBIL FOTO DARI KAMERA
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        capture="environment"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                    </label>
-                    <span className="font-mono text-[11px] text-[#272E3B] font-bold">
-                      KAMERA BELAKANG
-                    </span>
+
+                    {isMobile ? (
+                      /* DI MOBILE: Tetap gunakan input capture="environment" persis seperti sekarang untuk menjaga EXIF asli perangkat */
+                      <>
+                        <label className="h-[44px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold hover:bg-[#272E3B] transition-colors cursor-pointer inline-flex items-center justify-center">
+                          AMBIL FOTO DARI KAMERA
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            capture="environment"
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                        </label>
+                        <span className="font-mono text-[11px] text-[#272E3B] font-bold">
+                          KAMERA BELAKANG
+                        </span>
+                      </>
+                    ) : (
+                      /* DI DESKTOP: Buka preview kamera dalam modal dengan MediaDevices */
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openWebcamModal()}
+                          className="h-[44px] px-5 bg-[#000000] text-[#FFFFFF] font-mono text-[12px] uppercase font-bold hover:bg-[#272E3B] transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                        >
+                          <Camera className="w-4 h-4" />
+                          AMBIL FOTO DARI KAMERA
+                        </button>
+                        <span className="font-mono text-[11px] text-[#272E3B] font-bold">
+                          {hasWebcam === false ? 'KAMERA TIDAK TERDETEKSI' : 'WEBCAM DESKTOP'}
+                        </span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* EXIF Metadata Card */}
+              {/* 2. MODE PENGUJIAN (TERSEMBUNYI) - Hanya muncul jika URL memiliki query parameter ?dev=1 */}
+              {isDevMode && (
+                <div className="p-3.5 bg-[#FFF9F2] border-2 border-dashed border-[#F59E0B] flex flex-col gap-2 font-mono">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#B45309] uppercase tracking-wider flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" /> MODE PENGUJIAN
+                    </span>
+                    <span className="text-[10px] text-[#8E95A3] bg-[#FFFFFF] px-1.5 py-0.5 border border-[#F59E0B]/50 font-bold">
+                      ?dev=1
+                    </span>
+                  </div>
+                  <p className="font-body text-[12px] text-[#525866]">
+                    Unggah file gambar dari perangkat untuk menguji ekstraksi EXIF asli dan alur laporan:
+                  </p>
+                  <label className="h-[38px] px-4 bg-[#FFFFFF] border border-[#000000] hover:bg-[#F3F4F6] text-[#000000] text-[11px] uppercase font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-[#000000]" />
+                    <span>PILIH FILE FOTO (UJI EXIF)</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* EXIF Metadata Card - Jika foto memiliki metadata EXIF */}
               {exifInfo && (
                 <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-2 font-mono text-[11px]">
                   <div className="flex justify-between items-center text-[#000000] font-bold pb-2 border-b border-[#000000]">
@@ -493,6 +716,19 @@ export default function LaporPage() {
                       WAKTU JEPRET: {new Date(exifInfo.dateTimeOriginal).toLocaleString('id-ID')}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Status untuk foto Webcam Desktop (tanpa EXIF) */}
+              {photoPreview && !exifInfo && (
+                <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-2 font-mono text-[11px]">
+                  <div className="flex justify-between items-center text-[#000000] font-bold pb-2 border-b border-[#000000]">
+                    <span>METADATA FOTO</span>
+                    <span className="text-[#800020] font-bold">EXIF TIDAK TERSEDIA</span>
+                  </div>
+                  <div className="text-[#272E3B] pt-1 font-medium leading-relaxed">
+                    Foto diambil melalui webcam desktop tanpa metadata EXIF. Laporan ditangani dengan tingkat keyakinan <strong className="text-[#800020]">TINJAUAN</strong> untuk verifikasi manual petugas.
+                  </div>
                 </div>
               )}
 
@@ -720,6 +956,106 @@ export default function LaporPage() {
           type={toastMessage.type}
           onClose={() => setToastMessage(null)}
         />
+      )}
+
+      {/* MODAL KAMERA DESKTOP (WEBCAM) */}
+      {isWebcamOpen && (
+        <div className="fixed inset-0 z-50 bg-[#000000]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border-2 border-[#000000] w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header Modal */}
+            <div className="px-4 py-3 bg-[#000000] text-[#FFFFFF] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-[#FFFFFF]" />
+                <span className="font-mono text-[12px] uppercase font-bold tracking-wider">
+                  KAMERA WEBCAM DESKTOP
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={closeWebcamModal}
+                className="text-[#FFFFFF] hover:text-[#EF4444] transition-colors p-1"
+                aria-label="Tutup modal kamera"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Viewport Video Live */}
+            <div className="relative aspect-[4/3] bg-[#000000] flex items-center justify-center overflow-hidden">
+              {webcamError ? (
+                <div className="p-6 text-center flex flex-col items-center gap-3 text-[#FFFFFF]">
+                  <AlertCircle className="w-10 h-10 text-[#EF4444]" />
+                  <div className="font-mono text-[13px] font-bold text-[#EF4444] uppercase">
+                    Kamera Tidak Dapat Digunakan
+                  </div>
+                  <p className="font-body text-[13px] text-[#D0D5DD] max-w-sm">
+                    {webcamError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openWebcamModal()}
+                    className="mt-2 px-4 py-2 bg-[#800020] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold hover:bg-[#600018] transition-colors inline-flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> COBA LAGI
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+
+                  {isStartingCamera && (
+                    <div className="absolute inset-0 bg-[#000000]/60 flex items-center justify-center font-mono text-[12px] text-[#FFFFFF] gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#FFFFFF]" />
+                      <span>MEMULAI KAMERA...</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Kontrol Bawah Modal */}
+            <div className="p-4 bg-[#FFF9F2] border-t-2 border-[#000000] flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {videoDevices.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={switchWebcamDevice}
+                    disabled={isStartingCamera || !!webcamError}
+                    className="h-[42px] px-3 bg-[#FFFFFF] border border-[#000000] hover:bg-[#F3F4F6] text-[#000000] text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <SwitchCamera className="w-4 h-4" />
+                    <span>GANTI KAMERA ({currentDeviceIndex + 1}/{videoDevices.length})</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={closeWebcamModal}
+                  className="h-[42px] px-4 bg-[#FFFFFF] border border-[#D0D5DD] hover:border-[#000000] text-[#525866] hover:text-[#000000] text-[11px] uppercase font-bold transition-colors cursor-pointer"
+                >
+                  BATAL
+                </button>
+                <button
+                  type="button"
+                  onClick={captureWebcamPhoto}
+                  disabled={isStartingCamera || !!webcamError}
+                  className="h-[42px] px-6 bg-[#800020] hover:bg-[#600018] text-[#FFFFFF] text-[12px] uppercase font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  <Camera className="w-4 h-4 text-[#FFFFFF]" />
+                  AMBIL FOTO
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
