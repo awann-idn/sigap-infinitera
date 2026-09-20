@@ -42,9 +42,11 @@ export default function DashboardPage() {
   const [draftDeskripsi, setDraftDeskripsi] = useState('');
   const [draftWilayah, setDraftWilayah] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-
   const [filterVerifikasi, setFilterVerifikasi] = useState<string>('ALL');
   const [filterPenanganan, setFilterPenanganan] = useState<string>('ALL');
+  const [filterKeyakinan, setFilterKeyakinan] = useState<string>('ALL');
+  const [showRejectReason, setShowRejectReason] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchReports = async () => {
     setLoading(true);
@@ -67,6 +69,8 @@ export default function DashboardPage() {
     setSelectedReport(null);
     setEditing(false);
     setConfirmDelete(false);
+    setShowRejectReason(false);
+    setRejectReason('');
   };
 
   const handleUpdate = async (
@@ -148,8 +152,17 @@ export default function DashboardPage() {
   };
 
   const filtered = reports.filter((r) => {
-    if (filterVerifikasi !== 'ALL' && r.status_verifikasi !== filterVerifikasi) return false;
+    if (filterVerifikasi !== 'ALL') {
+      const v =
+        r.status_verifikasi === 'belum-diverifikasi'
+          ? 'menunggu-tinjauan'
+          : r.status_verifikasi === 'spam'
+          ? 'tidak-valid'
+          : r.status_verifikasi;
+      if (v !== filterVerifikasi) return false;
+    }
     if (filterPenanganan !== 'ALL' && r.status_penanganan !== filterPenanganan) return false;
+    if (filterKeyakinan !== 'ALL' && r.tingkat_keyakinan !== filterKeyakinan) return false;
     return true;
   });
 
@@ -224,9 +237,9 @@ export default function DashboardPage() {
               className="bg-[#FFFFFF] border border-[#D0D5DD] text-[#800020] px-3 py-2 focus:outline-none focus:border-[#800020]"
             >
               <option value="ALL">VERIFIKASI: SEMUA</option>
-              <option value="belum-diverifikasi">BELUM DIVERIFIKASI</option>
+              <option value="menunggu-tinjauan">MENUNGGU TINJAUAN</option>
               <option value="terverifikasi">TERVERIFIKASI</option>
-              <option value="spam">SPAM</option>
+              <option value="tidak-valid">TIDAK VALID</option>
             </select>
 
             <select
@@ -239,17 +252,29 @@ export default function DashboardPage() {
               <option value="diproses">DIPROSES</option>
               <option value="selesai">SELESAI</option>
             </select>
+
+            <select
+              value={filterKeyakinan}
+              onChange={(e) => setFilterKeyakinan(e.target.value)}
+              className="bg-[#FFFFFF] border border-[#D0D5DD] text-[#800020] px-3 py-2 focus:outline-none focus:border-[#800020]"
+            >
+              <option value="ALL">KEYAKINAN: SEMUA</option>
+              <option value="TINGGI">TINGGI</option>
+              <option value="TINJAUAN">TINJAUAN</option>
+              <option value="CURIGA">CURIGA</option>
+            </select>
           </div>
         </div>
 
         {/* Table */}
         <div className="w-full bg-[#FFFFFF] border border-[#D0D5DD] overflow-x-auto">
-          <table className="w-full text-left border-collapse font-body text-[14px] min-w-[720px]">
+          <table className="w-full text-left border-collapse font-body text-[14px] min-w-[760px]">
             <thead>
               <tr className="bg-[#F3E6D5] border-b border-[#D0D5DD] font-mono text-[11px] text-[#8E95A3] uppercase">
                 <th className="p-4">KODE / ID</th>
                 <th className="p-4">WAKTU</th>
                 <th className="p-4">WILAYAH</th>
+                <th className="p-4">KEYAKINAN</th>
                 <th className="p-4">VERIFIKASI</th>
                 <th className="p-4">PENANGANAN</th>
                 <th className="p-4 text-right">AKSI</th>
@@ -258,13 +283,13 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-[#D0D5DD]">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
+                  <td colSpan={7} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
                     MEMUAT TABLE LAPORAN...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
+                  <td colSpan={7} className="p-8 text-center font-mono text-[12px] text-[#8E95A3]">
                     TIDAK ADA DATA LAPORAN
                   </td>
                 </tr>
@@ -279,6 +304,9 @@ export default function DashboardPage() {
                     </td>
                     <td className="p-4 font-bold text-[#272E3B] max-w-[200px] truncate">
                       {item.wilayah}
+                    </td>
+                    <td className="p-4">
+                      <Badge type="keyakinan" value={item.tingkat_keyakinan || 'TINJAUAN'} isDashboard={true} />
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col gap-1 items-start">
@@ -409,12 +437,50 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Alasan Tidak Valid jika ada */}
+              {(selectedReport.status_verifikasi === 'tidak-valid' || selectedReport.alasan_tidak_valid) && (
+                <div className="bg-[#FEF2F2] border-2 border-[#EF4444] p-4 flex flex-col gap-1">
+                  <div className="flex items-center gap-2 font-mono text-[12px] font-bold text-[#991B1B] uppercase">
+                    <X className="w-4 h-4 text-[#DC2626]" />
+                    STATUS: LAPORAN TIDAK VALID
+                  </div>
+                  <div className="font-body text-[13px] text-[#7F1D1D] mt-0.5">
+                    Alasan:{' '}
+                    <span className="font-bold text-[#991B1B]">
+                      {selectedReport.alasan_tidak_valid || 'Tidak memenuhi kriteria validasi petugas.'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Verifikasi (ditaruh di atas agar jelas) */}
               <div className="bg-[#FFF9F2] border-2 border-[#800020] p-4 flex flex-col gap-3">
-                <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">Aksi Verifikasi Petugas</div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] text-[#800020] uppercase font-bold">
+                    Aksi Verifikasi Petugas
+                  </span>
+                  <span className="font-mono text-[10px] text-[#8E95A3] uppercase">
+                    Status saat ini:{' '}
+                    <span className="font-bold text-[#800020]">
+                      {selectedReport.status_verifikasi === 'terverifikasi'
+                        ? 'TERVERIFIKASI'
+                        : selectedReport.status_verifikasi === 'tidak-valid'
+                        ? 'TIDAK VALID'
+                        : 'MENUNGGU TINJAUAN'}
+                    </span>
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
-                    onClick={() => handleUpdate({ status_verifikasi: 'terverifikasi' }, 'LAPORAN DIVERIFIKASI VALID', 'terverifikasi')}
+                    onClick={() => {
+                      setShowRejectReason(false);
+                      handleUpdate(
+                        { status_verifikasi: 'terverifikasi', alasan_tidak_valid: null },
+                        'LAPORAN DIVERIFIKASI VALID',
+                        'terverifikasi'
+                      );
+                    }}
                     disabled={busy}
                     className={`h-[48px] font-mono text-[12px] uppercase font-bold border-2 inline-flex items-center justify-center gap-2 transition-colors ${
                       selectedReport.status_verifikasi === 'terverifikasi'
@@ -427,38 +493,114 @@ export default function DashboardPage() {
                   </button>
 
                   <button
-                    onClick={() => handleUpdate({ status_verifikasi: 'spam' }, 'LAPORAN DITANDAI SPAM', 'spam')}
+                    onClick={() => setShowRejectReason((prev) => !prev)}
                     disabled={busy}
                     className={`h-[48px] font-mono text-[12px] uppercase font-bold border-2 inline-flex items-center justify-center gap-2 transition-colors ${
-                      selectedReport.status_verifikasi === 'spam'
+                      selectedReport.status_verifikasi === 'tidak-valid'
                         ? 'bg-[#B91C1C] text-[#FFFFFF] border-[#B91C1C]'
                         : 'bg-[#FFFFFF] text-[#B91C1C] border-[#B91C1C] hover:bg-[#B91C1C]/10'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {pending === 'spam' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                    {pending === 'spam' ? 'MEMPROSES...' : 'TANDAI SPAM'}
+                    {pending === 'tidak-valid' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    {pending === 'tidak-valid' ? 'MEMPROSES...' : 'TANDAI TIDAK VALID'}
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-3 border-t border-[#D0D5DD]">
-                  <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">Status Penanganan</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['menunggu', 'diproses', 'selesai'] as const).map((p) => (
+                {/* Dropdown wajib pilih alasan saat menandai tidak valid */}
+                {showRejectReason && (
+                  <div className="bg-[#FFFFFF] border-2 border-[#EF4444] p-4 flex flex-col gap-3 mt-1">
+                    <label className="font-mono text-[11px] font-bold text-[#991B1B] uppercase flex items-center gap-1.5">
+                      <X className="w-3.5 h-3.5 text-[#DC2626]" />
+                      PILIH ALASAN PENOLAKAN (WAJIB):
+                    </label>
+                    <select
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      className="w-full h-[42px] px-3 bg-[#FEF2F2] border border-[#EF4444] text-[#991B1B] font-body text-[13px] font-semibold focus:outline-none"
+                    >
+                      <option value="">-- Pilih salah satu alasan penolakan --</option>
+                      <option value="Lokasi tidak sesuai bukti foto">Lokasi tidak sesuai bukti foto</option>
+                      <option value="Bukan kebakaran hutan/lahan">Bukan kebakaran hutan/lahan</option>
+                      <option value="Duplikat laporan yang sudah ada">Duplikat laporan yang sudah ada</option>
+                      <option value="Foto tidak dapat diverifikasi">Foto tidak dapat diverifikasi</option>
+                    </select>
+
+                    <div className="flex items-center gap-2 pt-1">
                       <button
-                        key={p}
-                        onClick={() => handleUpdate({ status_penanganan: p }, `STATUS: ${p.toUpperCase()}`, p)}
-                        disabled={busy}
-                        className={`h-[44px] font-mono text-[11px] uppercase border-2 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                          selectedReport.status_penanganan === p
-                            ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
-                            : 'bg-[#FFFFFF] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
-                        }`}
+                        type="button"
+                        disabled={!rejectReason || busy}
+                        onClick={async () => {
+                          const ok = await handleUpdate(
+                            { status_verifikasi: 'tidak-valid', alasan_tidak_valid: rejectReason },
+                            'LAPORAN DITANDAI TIDAK VALID',
+                            'tidak-valid'
+                          );
+                          if (ok) {
+                            setShowRejectReason(false);
+                            setRejectReason('');
+                          }
+                        }}
+                        className="h-[38px] px-4 bg-[#B91C1C] hover:bg-[#991B1B] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {pending === p && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        {p}
+                        {pending === 'tidak-valid' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        SIMPAN STATUS TIDAK VALID
                       </button>
-                    ))}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setShowRejectReason(false);
+                          setRejectReason('');
+                        }}
+                        className="h-[38px] px-4 bg-[#FFFFFF] border border-[#D0D5DD] text-[#525866] hover:bg-[#F3E6D5] font-mono text-[11px] uppercase font-bold transition-colors"
+                      >
+                        BATAL
+                      </button>
+                    </div>
                   </div>
+                )}
+
+                {/* Status Penanganan (hanya aktif jika verifikasi = TERVERIFIKASI) */}
+                <div className="flex flex-col gap-2 pt-3 border-t border-[#D0D5DD]">
+                  <div className="flex items-center justify-between">
+                    <div className="font-mono text-[11px] text-[#800020] uppercase font-bold">
+                      Status Penanganan (Tim Lapangan)
+                    </div>
+                    {selectedReport.status_verifikasi !== 'terverifikasi' && (
+                      <span className="font-mono text-[10px] text-[#A16207] font-bold uppercase">
+                        TERKUNCI (HANYA AKTIF JIKA TERVERIFIKASI)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['menunggu', 'diproses', 'selesai'] as const).map((p) => {
+                      const isVerified = selectedReport.status_verifikasi === 'terverifikasi';
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => handleUpdate({ status_penanganan: p }, `STATUS: ${p.toUpperCase()}`, p)}
+                          disabled={busy || !isVerified}
+                          title={!isVerified ? 'Verifikasi laporan terlebih dahulu untuk mengubah status penanganan' : undefined}
+                          className={`h-[44px] font-mono text-[11px] uppercase border-2 inline-flex items-center justify-center gap-1.5 transition-colors ${
+                            !isVerified
+                              ? 'bg-[#F3E6D5]/40 text-[#8E95A3] border-[#D0D5DD] opacity-50 cursor-not-allowed'
+                              : selectedReport.status_penanganan === p
+                              ? 'bg-[#800020] text-[#FFFFFF] border-[#800020] font-bold'
+                              : 'bg-[#FFFFFF] text-[#525866] border-[#D0D5DD] hover:border-[#800020]'
+                          }`}
+                        >
+                          {pending === p && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedReport.status_verifikasi !== 'terverifikasi' && (
+                    <span className="font-body text-[12px] text-[#A16207] italic">
+                      * Status penanganan hanya aktif jika status verifikasi <b>TERVERIFIKASI</b>.
+                    </span>
+                  )}
                 </div>
 
                 {/* Hapus */}

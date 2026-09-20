@@ -32,8 +32,8 @@ export default function Footer() {
                 <span className="text-[#000000] font-bold text-[16px]">112 / 113</span>
               </div>
               <div className="p-3 bg-[#FFFFFF] border-2 border-[#000000]">
-                <span className="text-[#000000] block text-[10px] font-bold">BPBD SUMATERA SELATAN</span>
-                <span className="font-bold text-[14px]">(0711) 555-0199</span>
+                <span className="text-[#000000] block text-[10px] font-bold">BPBD SUMSEL (PUSDALOPS PB)</span>
+                <span className="font-bold text-[14px]">(0711) 385112</span>
               </div>
             </div>
           </div>

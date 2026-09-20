@@ -1,31 +1,16 @@
 import { NextResponse } from 'next/server';
 import { updateLaporan, deleteLaporan, type LaporanUpdate } from '@/lib/db/store';
-import { createClient } from '@/lib/supabase/server';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
-
-async function requireStaff(): Promise<boolean> {
-  // In demo mode (Supabase not configured) there is no auth session to check.
-  if (!isSupabaseConfigured()) return true;
-
-  try {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return Boolean(user);
-  } catch {
-    return false;
-  }
-}
+import { validateStaffSession } from '@/lib/auth';
 
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    if (!(await requireStaff())) {
+    const isAuthorized = await validateStaffSession(request);
+    if (!isAuthorized) {
       return NextResponse.json(
-        { success: false, error: 'Tidak memiliki akses untuk mengubah laporan' },
+        { success: false, error: 'Sesi petugas tidak valid atau tidak memiliki izin akses' },
         { status: 401 }
       );
     }
@@ -37,6 +22,7 @@ export async function PATCH(
     if (body.status_penanganan) fields.status_penanganan = body.status_penanganan;
     if (typeof body.deskripsi === 'string') fields.deskripsi = body.deskripsi;
     if (typeof body.wilayah === 'string') fields.wilayah = body.wilayah;
+    if (body.alasan_tidak_valid !== undefined) fields.alasan_tidak_valid = body.alasan_tidak_valid;
 
     const updated = await updateLaporan(params.id, fields);
 
@@ -61,7 +47,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    if (!(await requireStaff())) {
+    const isAuthorized = await validateStaffSession(request);
+    if (!isAuthorized) {
       return NextResponse.json(
         { success: false, error: 'Tidak memiliki akses untuk menghapus laporan' },
         { status: 401 }

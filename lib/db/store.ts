@@ -5,6 +5,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { normalizeWilayahCity } from '@/lib/wilayah';
 import type { TingkatKeyakinan } from '@/lib/geo';
 
+export type StatusVerifikasi =
+  | 'menunggu-tinjauan'
+  | 'terverifikasi'
+  | 'tidak-valid'
+  | 'belum-diverifikasi'
+  | 'spam';
+
 export interface LaporanItem {
   id: string;
   kode: string;
@@ -26,8 +33,9 @@ export interface LaporanItem {
   tingkat_keyakinan: TingkatKeyakinan;
   date_time_original?: string | null;
   waktu_jepret_exif?: string | null;
-  status_verifikasi: 'belum-diverifikasi' | 'terverifikasi' | 'spam';
+  status_verifikasi: StatusVerifikasi;
   status_penanganan: 'menunggu' | 'diproses' | 'selesai';
+  alasan_tidak_valid?: string | null;
   petugas_id?: string;
   created_at: string;
   updated_at: string;
@@ -39,86 +47,7 @@ export interface StatisticsData {
   wilayahTerbanyak: string;
 }
 
-const INITIAL_SEED: LaporanItem[] = [
-  {
-    id: 'c0000000-0000-0000-0000-000000000001',
-    kode: 'SIGAP-20260916-001',
-    foto_url: '/images/karhutla_smoke_forest.png',
-    lat_gps: -3.0037,
-    lng_gps: 104.706,
-    akurasi_gps: 15,
-    lat_exif: -3.0039,
-    lng_exif: 104.7062,
-    exif_lat: -3.0039,
-    exif_lng: 104.7062,
-    jarak_exif_gps_m: 30,
-    selisih_jarak: 30,
-    flag_manual: false,
-    sumber_koordinat: 'gps',
-    wilayah: 'Kec. Gandus, Kota Palembang, Sumatera Selatan',
-    deskripsi: 'Asap tebal membumbung tinggi dari lahan gambut kering di tepi Sungai Musi.',
-    skala: 'BESAR',
-    tingkat_keyakinan: 'TINGGI',
-    date_time_original: '2026-09-17T07:00:00.000Z',
-    waktu_jepret_exif: '2026-09-17T07:00:00.000Z',
-    status_verifikasi: 'terverifikasi',
-    status_penanganan: 'diproses',
-    created_at: '2026-09-17T07:03:23.264Z',
-    updated_at: '2026-09-17T07:03:23.264Z',
-  },
-  {
-    id: 'c0000000-0000-0000-0000-000000000002',
-    kode: 'SIGAP-20260916-002',
-    foto_url: '/images/firefighter_action.png',
-    lat_gps: -2.9176,
-    lng_gps: 104.7063,
-    akurasi_gps: 25,
-    lat_exif: -2.948,
-    lng_exif: 104.701,
-    exif_lat: -2.948,
-    exif_lng: 104.701,
-    jarak_exif_gps_m: 3430,
-    selisih_jarak: 3430,
-    flag_manual: true,
-    sumber_koordinat: 'gps',
-    wilayah: 'Kec. Sukarami, Kota Palembang, Sumatera Selatan',
-    deskripsi: 'Api membakar semak dan rerumputan kering dekat permukiman warga.',
-    skala: 'SEDANG',
-    tingkat_keyakinan: 'TINJAUAN',
-    date_time_original: '2026-09-17T09:20:00.000Z',
-    waktu_jepret_exif: '2026-09-17T09:20:00.000Z',
-    status_verifikasi: 'belum-diverifikasi',
-    status_penanganan: 'menunggu',
-    created_at: '2026-09-17T09:28:23.264Z',
-    updated_at: '2026-09-17T09:28:23.264Z',
-  },
-  {
-    id: 'c0000000-0000-0000-0000-000000000003',
-    kode: 'SIGAP-20260916-003',
-    foto_url: '/images/drone_monitoring.png',
-    lat_gps: -3.2456,
-    lng_gps: 104.657,
-    akurasi_gps: 40,
-    lat_exif: null,
-    lng_exif: null,
-    exif_lat: null,
-    exif_lng: null,
-    jarak_exif_gps_m: null,
-    selisih_jarak: null,
-    flag_manual: false,
-    sumber_koordinat: 'gps',
-    wilayah: 'Kec. Indralaya, Kab. Ogan Ilir, Sumatera Selatan',
-    deskripsi: 'Titik api kecil bekas pembakaran lahan semak yang mulai meluas.',
-    skala: 'KECIL',
-    tingkat_keyakinan: 'TINJAUAN',
-    date_time_original: null,
-    waktu_jepret_exif: null,
-    status_verifikasi: 'terverifikasi',
-    status_penanganan: 'selesai',
-    created_at: '2026-09-16T11:03:23.264Z',
-    updated_at: '2026-09-16T11:03:23.264Z',
-  },
-];
+const INITIAL_SEED: LaporanItem[] = [];
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'laporan.json');
 
@@ -128,7 +57,7 @@ function ensureDataFile(): void {
     fs.mkdirSync(dir, { recursive: true });
   }
   if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(INITIAL_SEED, null, 2), 'utf-8');
+    fs.writeFileSync(DATA_FILE, '[]', 'utf-8');
   }
 }
 
@@ -138,12 +67,20 @@ function readData(): LaporanItem[] {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed;
+      return parsed.map((item: any) => {
+        let verif = item.status_verifikasi;
+        if (verif === 'belum-diverifikasi') verif = 'menunggu-tinjauan';
+        if (verif === 'spam') verif = 'tidak-valid';
+        return {
+          ...item,
+          status_verifikasi: verif || 'menunggu-tinjauan',
+        };
+      });
     }
   } catch (err) {
     console.error('[DATABASE ERROR] Gagal membaca data/laporan.json:', err);
   }
-  return [...INITIAL_SEED];
+  return [];
 }
 
 function writeData(data: LaporanItem[]): void {
@@ -179,11 +116,19 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
   const allReports = readData();
 
   if (onlyPublished) {
-    return allReports.filter(
-      (item) =>
-        item.status_verifikasi === 'terverifikasi' &&
-        item.status_penanganan !== 'menunggu'
-    );
+    // Publik hanya menampilkan laporan yang sudah terverifikasi
+    // Koordinat dibulatkan ke presisi ±100 meter (3 desimal) untuk melindungi privasi properti
+    return allReports
+      .filter((item) => item.status_verifikasi === 'terverifikasi')
+      .map((item) => ({
+        ...item,
+        lat_gps: Math.round(item.lat_gps * 1000) / 1000,
+        lng_gps: Math.round(item.lng_gps * 1000) / 1000,
+        lat_exif: undefined,
+        lng_exif: undefined,
+        exif_lat: undefined,
+        exif_lng: undefined,
+      }));
   }
 
   return onlyVerified
@@ -284,7 +229,14 @@ export async function addLaporan(
 }
 
 export type LaporanUpdate = Partial<
-  Pick<LaporanItem, 'status_verifikasi' | 'status_penanganan' | 'deskripsi' | 'wilayah'>
+  Pick<
+    LaporanItem,
+    | 'status_verifikasi'
+    | 'status_penanganan'
+    | 'deskripsi'
+    | 'wilayah'
+    | 'alasan_tidak_valid'
+  >
 >;
 
 function isUuid(value: string): boolean {
@@ -361,7 +313,7 @@ export async function getStatistics(): Promise<StatisticsData> {
     regionCounts[reg] = (regionCounts[reg] || 0) + 1;
   });
 
-  let topRegion = 'Kota Palembang, Sumatera Selatan';
+  let topRegion = '-';
   let maxCount = 0;
   Object.entries(regionCounts).forEach(([reg, count]) => {
     if (count > maxCount) {
@@ -373,6 +325,6 @@ export async function getStatistics(): Promise<StatisticsData> {
   return {
     totalTerverifikasi: list.length,
     penangananSelesai,
-    wilayahTerbanyak: topRegion,
+    wilayahTerbanyak: list.length === 0 ? '-' : topRegion,
   };
 }

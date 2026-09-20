@@ -1,37 +1,27 @@
 import { NextResponse } from 'next/server';
 import { getLaporanList, addLaporan } from '@/lib/db/store';
-import { createClient } from '@/lib/supabase/server';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { validateStaffSession } from '@/lib/auth';
+import { getClientIp, checkRateLimit } from '@/lib/rateLimit';
 import {
   calculateHaversineDistance,
   calculateTingkatKeyakinan,
 } from '@/lib/geo';
-
-async function hasStaffSession(): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
-
-  try {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return Boolean(user);
-  } catch {
-    return false;
-  }
-}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const wantsAll = searchParams.get('scope') === 'all';
 
-    // Public endpoint only exposes reports that are already verified AND
-    // being handled (diproses/selesai). Reports still "menunggu" penanganan
-    // are not shown publicly. The full list requires a staff session.
     let includeUnpublished = false;
     if (wantsAll) {
-      includeUnpublished = isSupabaseConfigured() ? await hasStaffSession() : true;
+      const isAuthorized = await validateStaffSession(request);
+      if (!isAuthorized) {
+        return NextResponse.json(
+          { success: false, error: 'Sesi petugas tidak valid atau telah berakhir. Silakan login kembali.' },
+          { status: 401 }
+        );
+      }
+      includeUnpublished = true;
     }
 
     const list = includeUnpublished
@@ -49,11 +39,62 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let requestCoordinates = { lat: 0, lng: 0 };
   try {
+    // 1. Rate Limiting: Max 3 reports per IP per 10 minutes
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit(ip);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Terlalu banyak laporan dari perangkat ini. Coba lagi dalam beberapa menit.',
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
 
     if (!body.foto_url || body.lat_gps === undefined || body.lng_gps === undefined) {
       return NextResponse.json(
         { success: false, error: 'Foto dan koordinat GPS wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    // Server-side photo validation:
+    // - Maksimal 5 MB
+    // - Hanya image/jpeg, image/png, image/webp
+    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+    let photoType = body.foto_tipe ? String(body.foto_tipe).toLowerCase() : undefined;
+    let photoSize = body.foto_size != null ? Number(body.foto_size) : undefined;
+
+    if (typeof body.foto_url === 'string' && body.foto_url.startsWith('data:')) {
+      const match = body.foto_url.match(/^data:([^;]+);base64,/i);
+      if (match) {
+        photoType = match[1].toLowerCase();
+      }
+      const base64Data = body.foto_url.replace(/^data:[^;]+;base64,/i, '');
+      photoSize = Buffer.from(base64Data, 'base64').length;
+    }
+
+    if (photoType && !ALLOWED_IMAGE_TYPES.includes(photoType)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Format foto tidak didukung. Hanya file image/jpeg, image/png, dan image/webp yang diizinkan.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (photoSize != null && photoSize > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Ukuran foto melebihi batas maksimal 5 MB.',
+        },
         { status: 400 }
       );
     }
@@ -112,8 +153,9 @@ export async function POST(request: Request) {
       tingkat_keyakinan: tingkat,
       date_time_original: dateTimeOriginal,
       waktu_jepret_exif: dateTimeOriginal,
-      status_verifikasi: 'belum-diverifikasi',
+      status_verifikasi: 'menunggu-tinjauan',
       status_penanganan: 'menunggu',
+      alasan_tidak_valid: null,
     });
 
     if (!newReport || !newReport.id) {

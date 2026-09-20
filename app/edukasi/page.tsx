@@ -159,7 +159,7 @@ export default function EdukasiPage() {
         {/* FAQ Accordion Section */}
         <div className="max-w-3xl mx-auto flex flex-col gap-6 pt-12 border-t-2 border-[#000000]">
           <div className="flex items-center gap-3 font-mono text-[12px] text-[#000000] uppercase font-bold">
-            <HelpCircle className="w-5 h-5 text-[#000000]" /> PERTANYAAN FREKUENSI TINGGI (FAQ)
+            <HelpCircle className="w-5 h-5 text-[#000000]" /> PERTANYAAN YANG SERING DIAJUKAN (FAQ)
           </div>
 
           <div className="flex flex-col gap-4">

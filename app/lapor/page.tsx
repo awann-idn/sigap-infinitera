@@ -118,6 +118,30 @@ export default function LaporPage() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
+    // VALIDASI FOTO:
+    // - Maksimal 5 MB
+    // - Hanya image/jpeg, image/png, image/webp
+    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+    if (!ALLOWED_TYPES.includes(selectedFile.type.toLowerCase())) {
+      setToastMessage({
+        msg: 'Format file tidak didukung. Hanya file JPG, PNG, atau WebP yang diizinkan.',
+        type: 'error',
+      });
+      e.target.value = '';
+      return;
+    }
+
+    if (selectedFile.size > MAX_SIZE_BYTES) {
+      setToastMessage({
+        msg: 'Ukuran foto melebihi batas maksimal 5 MB.',
+        type: 'error',
+      });
+      e.target.value = '';
+      return;
+    }
+
     setFile(selectedFile);
 
     // Read file for preview
@@ -177,6 +201,8 @@ export default function LaporPage() {
 
       const payload = {
         foto_url: mockPhotoUrl,
+        foto_tipe: file?.type,
+        foto_size: file?.size,
         lat_gps: gpsLat,
         lng_gps: gpsLng,
         akurasi_gps: gpsAccuracy,
@@ -249,23 +275,23 @@ export default function LaporPage() {
               </p>
             </div>
 
-            <div className="w-full bg-[#FFF9F2] p-4 border border-[#D0D5DD] font-mono text-[12px] flex flex-col gap-2 text-left">
-              <div className="flex justify-between">
-                <span className="text-[#8E95A3]">WILAYAH:</span>
-                <span className="text-[#800020] font-bold">{submittedReport.wilayah}</span>
+            <div className="w-full bg-[#FFF9F2] p-4 border border-[#D0D5DD] font-mono text-[11px] sm:text-[12px] flex flex-col gap-2.5 text-left">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
+                <span className="text-[#8E95A3] shrink-0">WILAYAH:</span>
+                <span className="text-[#800020] font-bold break-words">{submittedReport.wilayah}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#8E95A3]">KOORDINAT GPS:</span>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
+                <span className="text-[#8E95A3] shrink-0">KOORDINAT GPS:</span>
                 <span className="text-[#800020]">{submittedReport.lat_gps}, {submittedReport.lng_gps}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#8E95A3]">SUMBER KOORDINAT:</span>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
+                <span className="text-[#8E95A3] shrink-0">SUMBER KOORDINAT:</span>
                 <span className="text-[#800020] font-bold">
                   {submittedReport.sumber_koordinat === 'manual' ? 'MANUAL (PIN PETA)' : 'GPS OTOMATIS'}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#8E95A3]">TINGKAT KEYAKINAN:</span>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
+                <span className="text-[#8E95A3] shrink-0">TINGKAT KEYAKINAN:</span>
                 <span className="text-[#800020] font-bold">{submittedReport.tingkat_keyakinan}</span>
               </div>
             </div>
@@ -342,14 +368,14 @@ export default function LaporPage() {
                       AMBIL FOTO DARI KAMERA
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         capture="environment"
                         onChange={handleFileChange}
                         className="hidden"
                       />
                     </label>
                     <span className="font-mono text-[11px] text-[#272E3B] font-bold">
-                      KAMERA BELAKANG AKAN TERBUKA OTOMATIS
+                      KAMERA BELAKANG (JPG, PNG, WEBP — MAKS. 5 MB)
                     </span>
                   </div>
                 )}
@@ -405,32 +431,78 @@ export default function LaporPage() {
 
                 <div className="bg-[#FFFFFF] border-2 border-[#000000] p-4 flex flex-col gap-3">
                   {/* Coordinates Display Box */}
-                  {gpsLat !== null && gpsLng !== null ? (
-                    <div className="font-mono text-[15px] font-bold text-[#000000] bg-[#FFF9F2] p-3 border border-[#000000] flex items-center justify-between gap-3">
-                      <span className="break-all">
-                        LAT: {gpsLat.toFixed(5)} &nbsp; LNG: {gpsLng.toFixed(5)}
-                      </span>
-                      <ShieldCheck className="w-5 h-5 text-[#800020] shrink-0" />
+                  {gpsStatus === 'FETCHING' ? (
+                    <div className="font-mono text-[14px] font-bold text-[#800020] bg-[#FFF9F2] p-4 border border-[#000000] flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <RefreshCw className="w-5 h-5 text-[#800020] animate-spin shrink-0" />
+                        <span>Mengambil lokasi...</span>
+                      </div>
+                    </div>
+                  ) : gpsStatus === 'ERROR' ? (
+                    <div className="bg-[#FEF2F2] p-4 border-2 border-[#EF4444] flex flex-col gap-3">
+                      <div className="flex items-start gap-2.5 text-[#991B1B]">
+                        <AlertCircle className="w-5 h-5 text-[#DC2626] shrink-0 mt-0.5" />
+                        <div className="flex flex-col gap-1">
+                          <span className="font-mono text-[13px] font-bold uppercase">
+                            {gpsErrorMessage?.toLowerCase().includes('izin')
+                              ? 'Izin Akses Lokasi Ditolak'
+                              : 'Lokasi Belum Terdeteksi'}
+                          </span>
+                          <p className="font-body text-[13px] text-[#7F1D1D] leading-snug">
+                            {gpsErrorMessage || 'Izin akses lokasi ditolak oleh browser/pengguna. Silakan izinkan akses lokasi pada pengaturan browser Anda.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#FCA5A5]/50">
+                        <button
+                          type="button"
+                          onClick={requestBrowserLocation}
+                          className="h-[34px] px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          COBA LAGI
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowManualPin(true)}
+                          className="h-[34px] px-3.5 bg-[#FFFFFF] border border-[#DC2626] hover:bg-[#FEF2F2] text-[#DC2626] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          TENTUKAN PIN MANUAL
+                        </button>
+                      </div>
+                    </div>
+                  ) : gpsLat !== null && gpsLng !== null ? (
+                    <div className="bg-[#FFF9F2] p-4 border border-[#000000] flex flex-col gap-2">
+                      {/* Baris 1 (utama, teks besar): nama wilayah hasil reverse geocoding */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="font-mono text-[10px] text-[#8E95A3] font-bold uppercase tracking-wider">
+                            WILAYAH TERDETEKSI
+                          </span>
+                          <div className="font-display font-bold text-[18px] sm:text-[20px] text-[#000000] leading-snug break-words">
+                            {wilayah || <span className="text-[#8E95A3] italic font-normal text-[15px]">Mendeteksi nama wilayah...</span>}
+                          </div>
+                        </div>
+                        <ShieldCheck className="w-5 h-5 text-[#800020] shrink-0 mt-1" />
+                      </div>
+
+                      {/* Baris 2 (kecil, warna abu): LAT: -3.19741   LNG: 104.65960 */}
+                      <div className="pt-2 border-t border-[#000000]/10 flex flex-wrap items-center justify-between gap-2 font-mono text-[12px] text-[#6B7280]">
+                        <span className="font-medium tracking-wide">
+                          LAT: {gpsLat.toFixed(5)} &nbsp;&nbsp; LNG: {gpsLng.toFixed(5)}
+                        </span>
+                        {sumberKoordinat === 'gps' && gpsAccuracy !== null && (
+                          <span className="font-semibold text-[#4B5565] text-[11px]">
+                            Akurasi GPS: ±{gpsAccuracy}m
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <div className="font-mono text-[14px] font-bold text-[#B91C1C] bg-[#FEF2F2] p-3 border-2 border-[#EF4444] flex items-center justify-between gap-3">
-                      <span>
-                        {gpsStatus === 'FETCHING'
-                          ? 'Mendeteksi sinyal GPS browser...'
-                          : 'Lokasi belum terdeteksi'}
-                      </span>
-                      {gpsStatus === 'FETCHING' ? (
-                        <RefreshCw className="w-5 h-5 text-[#800020] animate-spin shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5 text-[#B91C1C] shrink-0" />
-                      )}
-                    </div>
-                  )}
-
-                  {/* GPS Accuracy Display */}
-                  {sumberKoordinat === 'gps' && gpsAccuracy !== null && (
-                    <div className="font-mono text-[12px] text-[#272E3B] font-bold flex items-center gap-1.5">
-                      <span>Akurasi GPS: ±{gpsAccuracy} meter</span>
+                    <div className="font-mono text-[14px] font-bold text-[#B91C1C] bg-[#FEF2F2] p-4 border-2 border-[#EF4444] flex items-center justify-between gap-3">
+                      <span>Lokasi belum terdeteksi</span>
+                      <AlertCircle className="w-5 h-5 text-[#B91C1C] shrink-0" />
                     </div>
                   )}
 
@@ -452,48 +524,25 @@ export default function LaporPage() {
                     </div>
                   )}
 
-                  {/* Geolocation Error State Message */}
-                  {gpsStatus === 'ERROR' && gpsErrorMessage && (
-                    <div className="bg-[#FEF2F2] border-2 border-[#EF4444] p-3 text-[#991B1B] font-mono text-[12px] flex flex-col gap-1">
-                      <div className="font-bold flex items-center gap-1.5 uppercase">
-                        <AlertCircle className="w-4 h-4 text-[#DC2626] shrink-0" />
-                        Gagal Mendeteksi Lokasi GPS
-                      </div>
-                      <div className="text-[11px] leading-relaxed">{gpsErrorMessage}</div>
-                    </div>
-                  )}
-
-                  {/* Reverse Geocoded Wilayah */}
-                  <div className="font-body text-[14px] text-[#272E3B] font-medium pt-1 border-t border-[#000000]/15">
-                    Wilayah:{' '}
-                    {gpsLat === null || gpsLng === null ? (
-                      <span className="text-[#8E95A3] font-mono">Belum tersedia</span>
-                    ) : wilayah ? (
-                      <span className="text-[#800020] font-mono font-bold">{wilayah}</span>
-                    ) : (
-                      <span className="text-[#8E95A3] font-mono italic">Mendeteksi alamat...</span>
-                    )}
-                  </div>
-
-                  {/* Location Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#000000]/15">
+                  {/* TOMBOL REFRESH GPS: outline button, responsif di mobile */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 pt-2">
                     <button
                       type="button"
                       onClick={requestBrowserLocation}
                       disabled={gpsStatus === 'FETCHING'}
-                      className="h-[38px] px-3.5 bg-[#800020] hover:bg-[#600018] text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      className="h-[40px] px-3 sm:px-4 bg-transparent border-2 border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50 w-full sm:w-fit cursor-pointer"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${gpsStatus === 'FETCHING' ? 'animate-spin' : ''}`} />
-                      PERBARUI LOKASI GPS
+                      <span>{gpsStatus === 'FETCHING' ? 'MENGAMBIL LOKASI...' : 'PERBARUI LOKASI GPS'}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleToggleManualPin}
-                      className="h-[38px] px-3.5 bg-[#FFFFFF] border border-[#000000] text-[#000000] hover:bg-[#F3E6D5] font-mono text-[11px] uppercase font-bold inline-flex items-center gap-1.5 transition-colors"
+                      className="h-[40px] px-3 sm:px-4 bg-transparent border-2 border-[#000000] text-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center justify-center gap-2 transition-colors w-full sm:w-fit cursor-pointer"
                     >
                       <MapPin className="w-3.5 h-3.5 text-[#800020]" />
-                      {showManualPin ? 'TUTUP PETA MANUAL' : 'TENTUKAN PIN MANUAL DI PETA'}
+                      <span>{showManualPin ? 'TUTUP PETA MANUAL' : 'TENTUKAN PIN MANUAL DI PETA'}</span>
                     </button>
                   </div>
                 </div>
@@ -536,14 +585,16 @@ export default function LaporPage() {
                   variant="primary"
                   fullWidth
                   disabled={submitting || !file || gpsLat === null || gpsLng === null}
-                  className="mt-2 text-[15px] h-[56px] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-2 text-[13px] sm:text-[15px] h-[52px] sm:h-[56px] px-2 sm:px-4 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting
                     ? 'MEMPROSES LAPORAN...'
-                    : gpsLat === null || gpsLng === null
-                    ? 'LOKASI BELUM TERSEDIA (GPS / PIN MANUAL WAJIB)'
+                    : !file && (gpsLat === null || gpsLng === null)
+                    ? 'FOTO & KOORDINAT WAJIB TERISI'
                     : !file
-                    ? 'FOTO KAMERA WAJIB DIAMBIL'
+                    ? 'AMBIL FOTO TERLEBIH DAHULU'
+                    : gpsLat === null || gpsLng === null
+                    ? 'LOKASI BELUM TERSEDIA'
                     : 'KIRIM LAPORAN DARURAT SIGAP'}
                 </Button>
               </div>

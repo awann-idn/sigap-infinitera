@@ -12,8 +12,8 @@ export default function LoginPage() {
   const router = useRouter();
   const supabaseReady = isSupabaseConfigured();
 
-  const [email, setEmail] = useState(supabaseReady ? '' : 'petugas@sigap.go.id');
-  const [password, setPassword] = useState(supabaseReady ? '' : 'sigap2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -73,6 +73,7 @@ export default function LoginPage() {
               <Input
                 label="EMAIL PETUGAS RESMI"
                 type="email"
+                placeholder="nama@instansi.go.id"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -81,6 +82,7 @@ export default function LoginPage() {
               <Input
                 label="PASSWORD"
                 type="password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -91,15 +93,12 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {!supabaseReady && (
-              <div className="p-4 bg-[#F3E6D5] border border-[#000000] font-mono text-[12px] text-[#000000] flex flex-col gap-1">
-                <div className="text-[#000000] font-bold flex items-center gap-1">
-                  <Key className="w-4 h-4 text-[#000000]" /> AKUN DEMO PETUGAS:
-                </div>
-                <div>Email: <span className="text-[#000000] font-bold">petugas@sigap.go.id</span></div>
-                <div>Pass: <span className="text-[#000000] font-bold">sigap2026</span></div>
+            <div className="p-4 bg-[#F3E6D5] border border-[#000000] font-mono text-[11px] text-[#272E3B] flex flex-col gap-1 leading-relaxed">
+              <div className="text-[#000000] font-bold flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-[#800020]" /> AKSES TERBATAS:
               </div>
-            )}
+              <div>Halaman ini khusus untuk personel operasional BPBD Sumatera Selatan dan regu Manggala Agni. Sesi diautentikasi aman melalui server.</div>
+            </div>
           </div>
         </Card>
       </div>

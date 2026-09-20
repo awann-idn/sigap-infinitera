@@ -1,6 +1,11 @@
 import React from 'react';
 
-export type StatusVerifikasi = 'belum-diverifikasi' | 'terverifikasi' | 'spam';
+export type StatusVerifikasi =
+  | 'menunggu-tinjauan'
+  | 'terverifikasi'
+  | 'tidak-valid'
+  | 'belum-diverifikasi'
+  | 'spam';
 export type StatusPenanganan = 'menunggu' | 'diproses' | 'selesai';
 
 interface BadgeProps {
@@ -15,8 +20,8 @@ export function Badge({ type = 'verifikasi', value, isDashboard = false, classNa
 
   if (!isDashboard) {
     if (value === 'terverifikasi') label = 'TERVERIFIKASI';
-    else if (value === 'belum-diverifikasi') label = 'BELUM DIVERIFIKASI';
-    else if (value === 'spam') label = 'SPAM';
+    else if (value === 'menunggu-tinjauan' || value === 'belum-diverifikasi') label = 'MENUNGGU TINJAUAN';
+    else if (value === 'tidak-valid' || value === 'spam') label = 'TIDAK VALID';
     else label = value.toUpperCase();
 
     return (
@@ -34,13 +39,15 @@ export function Badge({ type = 'verifikasi', value, isDashboard = false, classNa
         colorStyle = 'text-[#15803D] border-[#15803D] bg-[#15803D]/10 font-bold';
         label = 'TERVERIFIKASI';
         break;
+      case 'menunggu-tinjauan':
       case 'belum-diverifikasi':
         colorStyle = 'text-[#A16207] border-[#A16207] bg-[#A16207]/10 font-bold';
-        label = 'BELUM DIVERIFIKASI';
+        label = 'MENUNGGU TINJAUAN';
         break;
+      case 'tidak-valid':
       case 'spam':
         colorStyle = 'text-[#B91C1C] border-[#B91C1C] bg-[#B91C1C]/10 font-bold';
-        label = 'SPAM';
+        label = 'TIDAK VALID';
         break;
     }
   } else if (type === 'penanganan') {

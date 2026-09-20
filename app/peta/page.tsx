@@ -113,19 +113,19 @@ export default function PetaPage() {
         />
 
         {/* Info & Filter Bar */}
-        <div className="w-full bg-[#FFFFFF] border-2 border-[#800020] p-4 mb-6 flex flex-wrap items-center justify-between gap-4 font-mono text-[12px]">
+        <div className="w-full bg-[#FFFFFF] border-2 border-[#800020] p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 font-mono text-[11px] sm:text-[12px]">
           <div className="flex items-center gap-2 text-[#272E3B]">
             <ShieldCheck className="w-4 h-4 text-[#15803D] shrink-0" />
             <span className="uppercase font-bold">
-              Menampilkan laporan terverifikasi yang sedang/sudah ditangani
+              Laporan terverifikasi yang sedang/sudah ditangani
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#800020]/20">
             {selectedRegionId && (
               <button
                 onClick={handleResetView}
-                className="font-mono text-[11px] text-[#525866] hover:text-[#800020] uppercase font-bold flex items-center gap-1 border border-[#D0D5DD] px-2.5 py-1 bg-[#FFF9F2]"
+                className="font-mono text-[10px] sm:text-[11px] text-[#525866] hover:text-[#800020] uppercase font-bold flex items-center gap-1 border border-[#D0D5DD] px-2 py-1 bg-[#FFF9F2]"
               >
                 <Layers className="w-3.5 h-3.5" /> LIHAT SEMUA WILAYAH
               </button>
@@ -134,7 +134,7 @@ export default function PetaPage() {
             <button
               onClick={fetchReports}
               disabled={loading}
-              className="flex items-center gap-1.5 text-[#800020] hover:underline uppercase font-bold disabled:opacity-50"
+              className="flex items-center gap-1.5 text-[#800020] hover:underline uppercase font-bold disabled:opacity-50 text-[11px] sm:text-[12px]"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-[#800020] ${loading ? 'animate-spin' : ''}`} />
               REFRESH PETA
@@ -143,9 +143,9 @@ export default function PetaPage() {
         </div>
 
         {/* 2-Column Grid Layout: 75% Left (Map) / 25% Right (List) on desktop, stacked on <1024px */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full lg:h-[700px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full lg:h-[700px]">
           {/* Kolom Kiri: 75% (9 of 12 cols) - Leaflet Map */}
-          <div className="lg:col-span-9 h-[500px] lg:h-full border-2 border-[#800020] bg-[#FFF9F2] relative overflow-hidden flex flex-col">
+          <div className="lg:col-span-9 h-[380px] sm:h-[500px] lg:h-full border-2 border-[#800020] bg-[#FFF9F2] relative overflow-hidden flex flex-col">
             <LeafletMap
               reports={anonymizedReports}
               center={mapCenter}
@@ -154,7 +154,7 @@ export default function PetaPage() {
             />
 
             {/* Privacy indicator overlay on map corner */}
-            <div className="absolute bottom-2 left-2 z-[900] bg-[#FFFFFF]/90 backdrop-blur border border-[#800020] px-2.5 py-1 font-mono text-[10px] text-[#525866] uppercase">
+            <div className="absolute bottom-2 left-2 z-[900] bg-[#FFFFFF]/90 backdrop-blur border border-[#800020] px-2 py-0.5 sm:px-2.5 sm:py-1 font-mono text-[9px] sm:text-[10px] text-[#525866] uppercase">
               Koordinat publik disamarkan ±100m (Privasi Warga)
             </div>
           </div>

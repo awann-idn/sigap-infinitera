@@ -71,11 +71,11 @@ export default async function LandingPage() {
             </div>
 
             <h1 className="font-display text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] text-[#800020] leading-[1.15] uppercase">
-              LAPOR TITIK API PRESISI GPS.
+              SEBELUM SATELIT MELIHAT, WARGA SUDAH MELAPOR.
             </h1>
 
             <p className="font-body text-[16px] md:text-[18px] text-[#272E3B] leading-[1.6] max-w-xl font-medium">
-              Kanal pelaporan bencana kebakaran hutan &amp; lahan tanpa instalasi aplikasi. Verifikasi presisi lokasi otomatis berbasis GPS browser dan metadata foto EXIF.
+              Asap yang kita hirup bersama, dipadamkan bersama. Satu foto dari lokasi cukup untuk mempercepat langkah petugas.
             </p>
 
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 pt-2 max-w-md sm:max-w-none">
@@ -92,11 +92,46 @@ export default async function LandingPage() {
               </Link>
             </div>
 
-            {/* Micro Feature Highlights */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-8 border-t border-[#C1C7D0] mt-4 font-mono text-[11px] text-[#272E3B] font-bold">
-              <div>TANPA REGISTRASI CRITICAL</div>
-              <div>AUTO GEOLOCATION GPS</div>
-              <div>DATABUAT PETUGAS RESMI</div>
+            {/* Alur Pelaporan */}
+            <div className="pt-8 border-t border-[#C1C7D0] mt-4 flex flex-col gap-4">
+              <span className="font-mono text-[11px] font-bold text-[#800020] uppercase tracking-[0.15em]">
+                ALUR PELAPORAN
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[32px] font-bold text-[#800020] leading-none">
+                    01
+                  </span>
+                  <h4 className="font-body font-bold text-[15px] text-[#000000] leading-snug">
+                    Foto di lokasi
+                  </h4>
+                  <p className="font-body text-[13px] text-[#4B5565] leading-relaxed line-clamp-2">
+                    Jepret langsung dari kamera perangkat
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[32px] font-bold text-[#800020] leading-none">
+                    02
+                  </span>
+                  <h4 className="font-body font-bold text-[15px] text-[#000000] leading-snug">
+                    GPS terkunci
+                  </h4>
+                  <p className="font-body text-[13px] text-[#4B5565] leading-relaxed line-clamp-2">
+                    Koordinat dicocokkan dengan EXIF foto
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[32px] font-bold text-[#800020] leading-none">
+                    03
+                  </span>
+                  <h4 className="font-body font-bold text-[15px] text-[#000000] leading-snug">
+                    Verifikasi petugas
+                  </h4>
+                  <p className="font-body text-[13px] text-[#4B5565] leading-relaxed line-clamp-2">
+                    Ditinjau BPBD &amp; Manggala Agni
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

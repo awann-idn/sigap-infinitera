@@ -1,25 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
-
-const DEMO_EMAIL = 'petugas@sigap.go.id';
-const DEMO_PASSWORD = 'sigap2026';
-
-const DEMO_USER = {
-  id: 'a0000000-0000-0000-0000-000000000001',
-  nama: 'Komandan Budi Santoso',
-  email: DEMO_EMAIL,
-  institusi: 'Manggala Agni / BPBD Sumatera Selatan',
-  role: 'ADMIN',
-};
-
-interface PetugasProfile {
-  id: string;
-  nama: string;
-  email: string;
-  institusi: string;
-  role: string;
-}
+import {
+  verifyStaffCredentials,
+  createSessionToken,
+  SESSION_COOKIE_NAME,
+} from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
@@ -32,51 +16,33 @@ export async function POST(request: Request) {
       );
     }
 
-    if (isSupabaseConfigured()) {
-      const supabase = createClient();
+    const verification = await verifyStaffCredentials(email, password);
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error || !data.user) {
-        return NextResponse.json(
-          { success: false, error: error?.message || 'Email atau password petugas tidak valid' },
-          { status: 401 }
-        );
-      }
-
-      const profile: PetugasProfile = {
-        id: data.user.id,
-        nama: (data.user.user_metadata?.nama as string) || email.split('@')[0],
-        email: data.user.email || email,
-        institusi: (data.user.user_metadata?.institusi as string) || 'BPBD Sumatera Selatan',
-        role: (data.user.user_metadata?.role as string) || 'PETUGAS_LAPANGAN',
-      };
-
-      const { data: petugas } = await supabase
-        .from('petugas')
-        .select('id, nama, email, institusi, role')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (petugas) {
-        Object.assign(profile, petugas);
-      }
-
-      return NextResponse.json({ success: true, user: profile });
+    if (!verification.success || !verification.user) {
+      return NextResponse.json(
+        { success: false, error: verification.error || 'Email atau password petugas tidak valid' },
+        { status: 401 }
+      );
     }
 
-    // Fallback demo login when Supabase env is not configured.
-    if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      return NextResponse.json({ success: true, user: DEMO_USER });
-    }
+    const user = verification.user;
+    const sessionToken = await createSessionToken(user);
 
-    return NextResponse.json(
-      { success: false, error: 'Email atau password petugas tidak valid' },
-      { status: 401 }
-    );
+    const response = NextResponse.json({ success: true, user });
+
+    // Set secure HTTP-only cookie for session persistence and middleware validation
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 8 * 60 * 60, // 8 hours
+    });
+
+    return response;
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || 'Gagal login' },
+      { success: false, error: error.message || 'Gagal memproses autentikasi petugas' },
       { status: 500 }
     );
   }
