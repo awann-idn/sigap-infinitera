@@ -7,6 +7,10 @@ import {
   calculateTingkatKeyakinan,
 } from '@/lib/geo';
 
+// Selalu fetch fresh dari database — jangan pernah cache oleh Next.js atau CDN
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -27,7 +31,10 @@ export async function GET(request: Request) {
     const list = includeUnpublished
       ? await getLaporanList()
       : await getLaporanList({ onlyPublished: true });
-    return NextResponse.json({ success: true, data: list });
+    return NextResponse.json(
+      { success: true, data: list },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Gagal mengambil data' },
@@ -112,22 +119,30 @@ export async function POST(request: Request) {
     const dateTimeOriginal = body.date_time_original || body.waktu_jepret_exif || undefined;
     const sumberKoordinat: 'gps' | 'manual' = body.sumber_koordinat === 'manual' ? 'manual' : 'gps';
 
-    // Log incoming report
-    console.log(
-      `[LAPORAN MASUK] Waktu: ${new Date().toISOString()} | Koordinat: (${latGps}, ${lngGps}) | Akurasi: ${
-        akurasiGps != null ? `±${akurasiGps}m` : 'N/A'
-      } | Sumber: ${sumberKoordinat}`
-    );
+    // ── LOG LAPORAN MASUK ────────────────────────────────────────────────────
+    console.log('[LAPORAN MASUK]', {
+      waktu       : new Date().toISOString(),
+      koordinat_gps: { lat: latGps, lng: lngGps },
+      akurasi_gps : akurasiGps != null ? `±${akurasiGps}m` : null,
+      koordinat_exif: latExif != null && lngExif != null
+        ? { lat: latExif, lng: lngExif }
+        : null,
+      waktu_jepret_exif: dateTimeOriginal ?? null,
+      sumber_koordinat: sumberKoordinat,
+    });
 
     // Calculate distance on server
     let jarakExifGpsM: number | undefined;
     if (latExif != null && lngExif != null) {
       jarakExifGpsM = calculateHaversineDistance(latGps, lngGps, latExif, lngExif);
+      console.log(`[LAPORAN] Selisih jarak GPS vs EXIF: ${jarakExifGpsM}m`);
+    } else {
+      console.warn('[LAPORAN] Koordinat EXIF tidak ada \u2014 tingkat keyakinan akan TINJAUAN/CURIGA');
     }
 
     // Calculate tingkat keyakinan on server
     const serverTimestamp = new Date().toISOString();
-    const { tingkat } = calculateTingkatKeyakinan({
+    const { tingkat, reason } = calculateTingkatKeyakinan({
       gpsLat: latGps,
       gpsLng: lngGps,
       exifLat: latExif,
@@ -136,6 +151,7 @@ export async function POST(request: Request) {
       serverTimestamp,
       sumberKoordinat,
     });
+    console.log(`[LAPORAN] Tingkat keyakinan: ${tingkat} \u2014 ${reason}`);
 
     const newReport = await addLaporan({
       foto: foto,
@@ -168,10 +184,17 @@ export async function POST(request: Request) {
       throw new Error('Database tidak mengembalikan ID laporan baru');
     }
 
-    // Log successful persistence
-    console.log(
-      `[LAPORAN BERHASIL DISIMPAN] ID: ${newReport.id} | Kode: ${newReport.kode_laporan || newReport.kode} | Waktu: ${newReport.created_at} | Koordinat: (${newReport.lat_gps}, ${newReport.lng_gps}) | Tingkat: ${newReport.tingkat_keyakinan} | Status: BERHASIL`
-    );
+    // ── LOG SIMPAN BERHASIL ──────────────────────────────────────────────────
+    console.log('[LAPORAN TERSIMPAN]', {
+      id            : newReport.id,
+      kode          : newReport.kode_laporan || newReport.kode,
+      waktu_terima  : newReport.created_at,
+      koordinat_gps : { lat: newReport.lat_gps, lng: newReport.lng_gps },
+      koordinat_exif: latExif != null ? { lat: latExif, lng: lngExif } : null,
+      selisih_jarak : jarakExifGpsM != null ? `${jarakExifGpsM}m` : null,
+      tingkat_keyakinan: newReport.tingkat_keyakinan,
+      status        : 'BERHASIL',
+    });
 
     return NextResponse.json({ success: true, data: newReport }, { status: 201 });
   } catch (error: any) {

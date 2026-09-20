@@ -24,7 +24,9 @@ export async function PATCH(
     if (typeof body.wilayah === 'string') fields.wilayah = body.wilayah;
     if (body.alasan_tidak_valid !== undefined) fields.alasan_tidak_valid = body.alasan_tidak_valid;
 
+    console.log(`[API PATCH] Menerima request update untuk ID: "${params.id}"`, JSON.stringify(fields));
     const updated = await updateLaporan(params.id, fields);
+    console.log(`[API PATCH] Hasil update untuk ID: "${params.id}":`, updated ? `Record DITEMUKAN (ID: ${updated.id})` : 'Record TIDAK DITEMUKAN');
 
     if (!updated) {
       return NextResponse.json(
@@ -35,6 +37,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {
+    console.error(`[API PATCH ERROR] ID: "${params.id}":`, error?.stack || error?.message || error);
     return NextResponse.json(
       { success: false, error: error.message || 'Gagal memperbarui laporan' },
       { status: 500 }
@@ -55,7 +58,9 @@ export async function DELETE(
       );
     }
 
+    console.log(`[API DELETE] Menerima request delete untuk ID: "${params.id}"`);
     const deleted = await deleteLaporan(params.id);
+    console.log(`[API DELETE] Hasil delete untuk ID: "${params.id}":`, deleted ? 'Record BERHASIL DIHAPUS' : 'Record TIDAK DITEMUKAN');
 
     if (!deleted) {
       return NextResponse.json(
@@ -66,7 +71,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('[API DELETE ERROR] ID:', params.id, 'Error:', error?.stack || error?.message || error);
+    console.error(`[API DELETE ERROR] ID: "${params.id}":`, error?.stack || error?.message || error);
     return NextResponse.json(
       { success: false, error: error.message || 'Gagal menghapus laporan' },
       { status: 500 }

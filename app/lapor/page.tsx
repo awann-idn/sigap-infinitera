@@ -18,7 +18,7 @@ import Card from '@/components/Card';
 import { Textarea } from '@/components/Input';
 import { Toast } from '@/components/Toast';
 import { parseExifData, ExifData } from '@/lib/exif';
-import { calculateHaversineDistance } from '@/lib/geo';
+import { calculateHaversineDistance, isLuarWilayahSumsel } from '@/lib/geo';
 import { reverseGeocode } from '@/lib/wilayah';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
@@ -261,6 +261,10 @@ export default function LaporPage() {
       ? calculateHaversineDistance(gpsLat, gpsLng, exifInfo.latitude, exifInfo.longitude)
       : null;
 
+  // Check if coordinates are outside Sumatera Selatan coverage area
+  const isOutsideSumsel =
+    gpsLat !== null && gpsLng !== null && isLuarWilayahSumsel(gpsLat, gpsLng);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -272,7 +276,11 @@ export default function LaporPage() {
     setSubmitting(true);
 
     try {
-      const photoPayload = photoPreview || '/images/karhutla_smoke_forest.png';
+      // Foto WAJIB ada — jangan pakai fallback aset statis
+      if (!photoPreview) {
+        throw new Error('Foto belum dipilih. Ambil foto terlebih dahulu.');
+      }
+      const photoPayload = photoPreview;
 
       // Baca EXIF dari ref — dijamin nilai terbaru meski React belum flush state
       const latestExif = exifRef.current;
@@ -645,7 +653,7 @@ export default function LaporPage() {
                     <div className="w-full h-[240px]">
                       <MapContainer
                         reports={[]}
-                        center={gpsLat !== null && gpsLng !== null ? [gpsLat, gpsLng] : [-3.0, 104.5]}
+                        center={gpsLat !== null && gpsLng !== null ? [gpsLat, gpsLng] : undefined}
                         zoom={14}
                         draggablePin={true}
                         onPinDragEnd={handlePinDragEnd}
@@ -664,6 +672,22 @@ export default function LaporPage() {
                   onChange={(e) => setDeskripsi(e.target.value)}
                 />
 
+                {/* Out-of-bounds Sumsel warning — shown when GPS coords are outside province */}
+                {isOutsideSumsel && (
+                  <div className="bg-[#FFFBEB] border-2 border-[#F59E0B] p-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
+                    <div className="flex flex-col gap-1">
+                      <span className="font-mono text-[12px] font-bold text-[#92400E] uppercase tracking-wide">
+                        LOKASI DI LUAR WILAYAH SUMATERA SELATAN
+                      </span>
+                      <p className="font-body text-[13px] text-[#78350F] leading-snug">
+                        Lokasi Anda terdeteksi di luar Provinsi Sumatera Selatan. SIGAP saat ini melayani wilayah Sumatera Selatan.
+                        Laporan tetap dapat dikirim dan akan tercatat sebagai laporan luar wilayah.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   variant="primary"
@@ -679,6 +703,8 @@ export default function LaporPage() {
                     ? 'AMBIL FOTO TERLEBIH DAHULU'
                     : gpsLat === null || gpsLng === null
                     ? 'LOKASI BELUM TERSEDIA'
+                    : isOutsideSumsel
+                    ? 'KIRIM LAPORAN (LUAR WILAYAH)'
                     : 'KIRIM LAPORAN DARURAT SIGAP'}
                 </Button>
               </div>

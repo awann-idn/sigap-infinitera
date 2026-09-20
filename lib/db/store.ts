@@ -5,7 +5,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { Redis } from '@upstash/redis';
 import { normalizeWilayahCity } from '@/lib/wilayah';
-import type { TingkatKeyakinan } from '@/lib/geo';
+import { type TingkatKeyakinan, isLuarWilayahSumsel, calculateTingkatKeyakinan } from '@/lib/geo';
 
 export type StatusVerifikasi =
   | 'menunggu-tinjauan'
@@ -33,6 +33,7 @@ export interface LaporanItem {
   selisih_jarak?: number | null;
   flag_manual?: boolean;
   sumber_koordinat: 'gps' | 'manual';
+  luar_wilayah?: boolean;
   wilayah: string;
   deskripsi: string;
   skala?: 'KECIL' | 'SEDANG' | 'BESAR';
@@ -44,6 +45,7 @@ export interface LaporanItem {
   status_penanganan: 'menunggu' | 'diproses' | 'selesai';
   alasan_tidak_valid?: string | null;
   petugas_id?: string | null;
+  is_seed?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +57,28 @@ export interface StatisticsData {
 }
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'laporan.json');
+
+/**
+ * Menghapus kolom foto dari objek log agar tidak membanjiri terminal.
+ * Mengganti base64 yang panjang dengan ringkasan ukuran.
+ */
+function sanitizeForLog(record: Record<string, any>): Record<string, any> {
+  const result = { ...record };
+  for (const key of ['foto', 'foto_url', 'foto_tipe']) {
+    if (key in result) {
+      const val = result[key];
+      if (typeof val === 'string' && val.length > 100) {
+        const kb = Math.round(val.length / 1024);
+        result[key] = `<base64, ${kb} KB>`;
+      } else if (val) {
+        result[key] = '[ada]';
+      } else {
+        result[key] = '[kosong]';
+      }
+    }
+  }
+  return result;
+}
 
 // In-memory cache for fast read/write and fallback on serverless environments
 let memoryCache: LaporanItem[] | null = null;
@@ -116,24 +140,39 @@ function mapRawToLaporanItem(row: any): LaporanItem {
     lat_gps: lat,
     lng_gps: lng,
     akurasi_gps: row.akurasi_gps != null ? Number(row.akurasi_gps) : null,
-    exif_lat: row.exif_lat != null ? Number(row.exif_lat) : null,
-    exif_lng: row.exif_lng != null ? Number(row.exif_lng) : null,
-    lat_exif: row.exif_lat != null ? Number(row.exif_lat) : null,
-    lng_exif: row.exif_lng != null ? Number(row.exif_lng) : null,
+    // Accept both naming variants: exif_lat (Neon/canonical) and lat_exif (legacy)
+    exif_lat: row.exif_lat != null ? Number(row.exif_lat) : row.lat_exif != null ? Number(row.lat_exif) : null,
+    exif_lng: row.exif_lng != null ? Number(row.exif_lng) : row.lng_exif != null ? Number(row.lng_exif) : null,
+    lat_exif: row.exif_lat != null ? Number(row.exif_lat) : row.lat_exif != null ? Number(row.lat_exif) : null,
+    lng_exif: row.exif_lng != null ? Number(row.exif_lng) : row.lng_exif != null ? Number(row.lng_exif) : null,
     waktu_jepret_exif: waktuJepret,
     date_time_original: waktuJepret,
-    selisih_jarak: row.selisih_jarak != null ? Number(row.selisih_jarak) : null,
-    jarak_exif_gps_m: row.selisih_jarak != null ? Number(row.selisih_jarak) : null,
+    selisih_jarak: row.selisih_jarak != null ? Number(row.selisih_jarak) : row.jarak_exif_gps_m != null ? Number(row.jarak_exif_gps_m) : null,
+    jarak_exif_gps_m: row.selisih_jarak != null ? Number(row.selisih_jarak) : row.jarak_exif_gps_m != null ? Number(row.jarak_exif_gps_m) : null,
     sumber_koordinat: row.sumber_koordinat === 'manual' ? 'manual' : 'gps',
     flag_manual: row.flag_manual ?? false,
     wilayah: row.wilayah || '',
     deskripsi: row.deskripsi || '',
     skala: row.skala || 'SEDANG',
-    tingkat_keyakinan: row.tingkat_keyakinan || 'TINJAUAN',
+    tingkat_keyakinan:
+      row.tingkat_keyakinan ||
+      (row.lat_exif != null || row.exif_lat != null
+        ? calculateTingkatKeyakinan({
+            gpsLat: lat,
+            gpsLng: lng,
+            exifLat: row.exif_lat != null ? Number(row.exif_lat) : row.lat_exif != null ? Number(row.lat_exif) : null,
+            exifLng: row.exif_lng != null ? Number(row.exif_lng) : row.lng_exif != null ? Number(row.lng_exif) : null,
+            dateTimeOriginal: waktuJepret,
+            serverTimestamp: waktuTerima,
+            sumberKoordinat: row.sumber_koordinat,
+          }).tingkat
+        : 'TINJAUAN'),
     status_verifikasi: statusVerif || 'menunggu-tinjauan',
     status_penanganan: row.status_penanganan || 'menunggu',
     alasan_tidak_valid: row.alasan_tidak_valid || null,
     petugas_id: row.petugas_id || null,
+    is_seed: row.is_seed != null ? Boolean(row.is_seed) : false,
+    luar_wilayah: row.luar_wilayah != null ? Boolean(row.luar_wilayah) : isLuarWilayahSumsel(lat, lng),
     waktu_terima: waktuTerima,
     created_at: waktuTerima,
     updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : waktuTerima,
@@ -226,6 +265,10 @@ async function ensureDatabaseReady(): Promise<void> {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         )
       `;
+
+      // Pastikan kolom luar_wilayah & is_seed ada di Postgres
+      await sql`ALTER TABLE public.laporan ADD COLUMN IF NOT EXISTS luar_wilayah BOOLEAN DEFAULT false;`;
+      await sql`ALTER TABLE public.laporan ADD COLUMN IF NOT EXISTS is_seed BOOLEAN DEFAULT false;`;
 
       // Cek apakah tabel masih kosong, jika ya lakukan migrasi seed data (tanpa entri manual)
       const countResult = await sql`SELECT COUNT(*)::int as total FROM public.laporan`;
@@ -333,13 +376,29 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
     const supabase = getSupabase();
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('laporan')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('waktu_terima', { ascending: false });
+
+        // Fallback jika kolom waktu_terima belum ada di skema Supabase
+        if (error && (error.code === '42703' || error.message?.includes('waktu_terima'))) {
+          const fallback = await supabase
+            .from('laporan')
+            .select('*')
+            .order('created_at', { ascending: false });
+          data = fallback.data;
+          error = fallback.error;
+        }
 
         if (!error && data && data.length > 0) {
+          if (process.env.NODE_ENV === 'development') {
+            const kodeList = data.map((r: any) => r.kode_laporan || r.kode || r.id).join(', ');
+            console.log(`[SUPABASE SELECT] ${data.length} records: ${kodeList}`);
+          }
           reports = data.map((item) => mapRawToLaporanItem(item));
+        } else if (error) {
+          console.warn('[SUPABASE GET ERROR]:', error.message);
         }
       } catch (err) {
         console.warn('[SUPABASE GET ERROR]:', err);
@@ -359,10 +418,10 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
   }
 
   if (onlyPublished) {
-    // Publik hanya menampilkan laporan yang sudah terverifikasi
+    // Publik hanya menampilkan laporan yang sudah terverifikasi dan bukan luar wilayah Sumsel
     // Koordinat dibulatkan ke presisi ±100 meter (3 desimal) untuk melindungi privasi properti
     return reports
-      .filter((item) => item.status_verifikasi === 'terverifikasi')
+      .filter((item) => item.status_verifikasi === 'terverifikasi' && !item.luar_wilayah)
       .map((item) => ({
         ...item,
         lat_gps: Math.round(item.lat_gps * 1000) / 1000,
@@ -423,6 +482,10 @@ export async function addLaporan(
   const jarakM = laporan.jarak_exif_gps_m ?? laporan.selisih_jarak ?? null;
   const dateTime = laporan.date_time_original ?? laporan.waktu_jepret_exif ?? null;
   const fotoPayload = (laporan as any).foto || laporan.foto_url;
+  const luarWilayah =
+    laporan.luar_wilayah != null
+      ? Boolean(laporan.luar_wilayah)
+      : isLuarWilayahSumsel(latGps, lngGps);
 
   const newItem: LaporanItem = {
     ...laporan,
@@ -450,6 +513,8 @@ export async function addLaporan(
     status_penanganan: laporan.status_penanganan || 'menunggu',
     sumber_koordinat: laporan.sumber_koordinat || 'gps',
     tingkat_keyakinan: laporan.tingkat_keyakinan || 'TINJAUAN',
+    luar_wilayah: luarWilayah,
+    is_seed: false,
   };
 
   let savedSuccessfully = false;
@@ -464,13 +529,13 @@ export async function addLaporan(
           exif_lat, exif_lng, waktu_jepret_exif, selisih_jarak,
           akurasi_gps, sumber_koordinat, tingkat_keyakinan,
           status_verifikasi, status_penanganan, alasan_tidak_valid,
-          deskripsi, foto, kode, lat_gps, lng_gps, foto_url, created_at, updated_at
+          deskripsi, foto, kode, lat_gps, lng_gps, foto_url, created_at, updated_at, luar_wilayah
         ) VALUES (
           ${newItem.id}, ${newItem.kode}, ${newItem.created_at}, ${newItem.lat_gps}, ${newItem.lng_gps}, ${newItem.wilayah},
           ${newItem.exif_lat}, ${newItem.exif_lng}, ${newItem.waktu_jepret_exif}, ${newItem.selisih_jarak},
           ${newItem.akurasi_gps ?? null}, ${newItem.sumber_koordinat}, ${newItem.tingkat_keyakinan},
           ${newItem.status_verifikasi}, ${newItem.status_penanganan}, ${newItem.alasan_tidak_valid ?? null},
-          ${newItem.deskripsi || ''}, ${newItem.foto_url}, ${newItem.kode}, ${newItem.lat_gps}, ${newItem.lng_gps}, ${newItem.foto_url}, ${newItem.created_at}, ${newItem.updated_at}
+          ${newItem.deskripsi || ''}, ${newItem.foto_url}, ${newItem.kode}, ${newItem.lat_gps}, ${newItem.lng_gps}, ${newItem.foto_url}, ${newItem.created_at}, ${newItem.updated_at}, ${newItem.luar_wilayah ?? false}
         )
         RETURNING *
       `;
@@ -501,28 +566,44 @@ export async function addLaporan(
   const supabase = getSupabase();
   if (supabase) {
     try {
-      const { error } = await supabase.from('laporan').insert([
-        {
-          id: newItem.id,
-          kode: newItem.kode,
-          foto_url: newItem.foto_url,
-          lat_gps: newItem.lat_gps,
-          lng_gps: newItem.lng_gps,
-          lat_exif: newItem.lat_exif,
-          lng_exif: newItem.lng_exif,
-          jarak_exif_gps_m: newItem.jarak_exif_gps_m,
-          flag_manual: newItem.flag_manual,
-          wilayah: newItem.wilayah,
-          deskripsi: newItem.deskripsi,
-          skala: newItem.skala,
-          status_verifikasi: newItem.status_verifikasi,
-          status_penanganan: newItem.status_penanganan,
-          created_at: newItem.created_at,
-          updated_at: newItem.updated_at,
-        },
-      ]);
+      const sbStatusVerif =
+        newItem.status_verifikasi === 'menunggu-tinjauan'
+          ? 'belum-diverifikasi'
+          : newItem.status_verifikasi;
+
+      const sbPayload: any = {
+        id: newItem.id,
+        kode: newItem.kode,
+        foto_url: newItem.foto_url,
+        lat_gps: newItem.lat_gps,
+        lng_gps: newItem.lng_gps,
+        lat_exif: newItem.lat_exif ?? newItem.exif_lat ?? null,
+        lng_exif: newItem.lng_exif ?? newItem.exif_lng ?? null,
+        jarak_exif_gps_m: newItem.jarak_exif_gps_m ?? newItem.selisih_jarak ?? null,
+        flag_manual: newItem.flag_manual ?? false,
+        wilayah: newItem.wilayah,
+        deskripsi: newItem.deskripsi,
+        skala: newItem.skala ?? 'SEDANG',
+        status_verifikasi: sbStatusVerif,
+        status_penanganan: newItem.status_penanganan,
+        is_seed: false,
+        created_at: newItem.created_at,
+        updated_at: newItem.updated_at,
+      };
+
+      let { error } = await supabase.from('laporan').insert([sbPayload]);
+      if (error && (error.code === 'PGRST204' || error.message?.includes('is_seed'))) {
+        // Fallback jika kolom is_seed belum dibuat di tabel Supabase
+        const { is_seed, ...payloadWithoutSeed } = sbPayload;
+        const fallbackRes = await supabase.from('laporan').insert([payloadWithoutSeed]);
+        error = fallbackRes.error;
+      }
+
       if (!error) {
         savedSuccessfully = true;
+        console.log(`[SUPABASE INSERT SUCCESS] Laporan ID ${newItem.id} tersimpan.`);
+      } else {
+        console.warn('[SUPABASE INSERT WARNING]:', error.message);
       }
     } catch (sbError: any) {
       console.warn('[SUPABASE INSERT WARNING]:', sbError?.message || sbError);
@@ -536,17 +617,20 @@ export async function addLaporan(
   memoryCache = [newItem, ...memoryCache.filter((item) => item.id !== newItem.id)];
 
   // Coba tulis ke disk hanya jika filesystem writable (lingkungan dev lokal)
+  saveLocalDataFile();
+
+  return newItem;
+}
+
+function saveLocalDataFile(): void {
   try {
     const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
-    if (!isVercel) {
+    if (!isVercel && memoryCache) {
       fs.writeFileSync(DATA_FILE, JSON.stringify(memoryCache, null, 2), 'utf-8');
     }
   } catch (fsErr) {
-    // Pada Vercel (read-only filesystem), abaikan error EROFS karena data sudah berada di DB/memori
     console.warn('[STORAGE NOTICE] Filesystem bersifat read-only (Vercel). Data disimpan di database/memori.');
   }
-
-  return newItem;
 }
 
 export type LaporanUpdate = Partial<
@@ -569,11 +653,19 @@ export async function updateLaporan(
 ): Promise<LaporanItem | null> {
   await ensureDatabaseReady();
 
+  console.log(`[UPDATE] Mencari laporan dengan ID: "${id}"`, JSON.stringify(fields));
+
+  // Pastikan memoryCache sudah terisi sebelum mencari
+  if (!memoryCache) {
+    await getLaporanList();
+  }
+
   // 1. Update di Postgres / Neon
   const sql = getNeonSql();
   if (sql) {
     try {
-      const existing = await sql`SELECT * FROM public.laporan WHERE id = ${id} OR kode = ${id} OR kode_laporan = ${id}`;
+      const existing = await sql`SELECT * FROM public.laporan WHERE id::text = ${id} OR kode = ${id} OR kode_laporan = ${id}`;
+      console.log(`[UPDATE][NEON] Baris ditemukan: ${existing?.length ?? 0} untuk ID: "${id}"`);
       if (existing && existing.length > 0) {
         const row = existing[0];
         const statusVerif = fields.status_verifikasi ?? row.status_verifikasi;
@@ -599,6 +691,7 @@ export async function updateLaporan(
           if (memoryCache) {
             memoryCache = memoryCache.map((item) => (item.id === updatedItem.id ? updatedItem : item));
           }
+          saveLocalDataFile();
           return updatedItem;
         }
       }
@@ -612,7 +705,7 @@ export async function updateLaporan(
   if (redis) {
     try {
       const list = await getLaporanList();
-      const idx = list.findIndex((item) => item.id === id || item.kode === id);
+      const idx = list.findIndex((item) => item.id === id || item.kode === id || item.kode_laporan === id);
       if (idx !== -1) {
         list[idx] = {
           ...list[idx],
@@ -621,6 +714,7 @@ export async function updateLaporan(
         };
         await redis.set('sigap:laporan:list', JSON.stringify(list));
         memoryCache = list;
+        saveLocalDataFile();
         return list[idx];
       }
     } catch (err) {
@@ -628,19 +722,63 @@ export async function updateLaporan(
     }
   }
 
-  // 3. Fallback memory
+  // 3. Update di Supabase jika tersedia
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const sbUpdate: any = { updated_at: new Date().toISOString() };
+      if (fields.status_verifikasi !== undefined) {
+        sbUpdate.status_verifikasi =
+          fields.status_verifikasi === 'menunggu-tinjauan'
+            ? 'belum-diverifikasi'
+            : fields.status_verifikasi;
+      }
+      if (fields.status_penanganan !== undefined) {
+        sbUpdate.status_penanganan = fields.status_penanganan;
+      }
+      if (fields.deskripsi !== undefined) {
+        sbUpdate.deskripsi = fields.deskripsi;
+      }
+      if (fields.wilayah !== undefined) {
+        sbUpdate.wilayah = fields.wilayah;
+      }
+
+      const { data, error } = await supabase
+        .from('laporan')
+        .update(sbUpdate)
+        .or(`id.eq.${id},kode.eq.${id}`)
+        .select();
+
+      console.log(`[UPDATE][SUPABASE] Baris diperbarui: ${data?.length ?? 0} untuk ID: "${id}"`);
+      if (!error && data && data.length > 0) {
+        const updatedItem = mapRawToLaporanItem(data[0]);
+        if (memoryCache) {
+          memoryCache = memoryCache.map((item) => (item.id === updatedItem.id ? updatedItem : item));
+        }
+        saveLocalDataFile();
+        return updatedItem;
+      }
+    } catch (err) {
+      console.error('[SUPABASE UPDATE ERROR]:', err);
+    }
+  }
+
+  // 4. Fallback memory & local storage
   if (memoryCache) {
-    const idx = memoryCache.findIndex((item) => item.id === id || item.kode === id);
+    const idx = memoryCache.findIndex((item) => item.id === id || item.kode === id || item.kode_laporan === id);
     if (idx !== -1) {
       memoryCache[idx] = {
         ...memoryCache[idx],
         ...fields,
         updated_at: new Date().toISOString(),
       };
+      saveLocalDataFile();
+      console.log(`[UPDATE][MEMORY] Laporan ditemukan dan diperbarui untuk ID: "${id}"`);
       return memoryCache[idx];
     }
   }
 
+  console.warn(`[UPDATE] Laporan TIDAK DITEMUKAN untuk ID: "${id}"`);
   return null;
 }
 
@@ -651,15 +789,23 @@ export async function deleteLaporan(id: string): Promise<boolean> {
   await ensureDatabaseReady();
   let deleted = false;
 
+  console.log(`[DELETE] Mencari laporan dengan ID: "${id}"`);
+
+  // Pastikan memoryCache sudah terisi sebelum mencari
+  if (!memoryCache) {
+    await getLaporanList();
+  }
+
   // 1. Delete dari Postgres / Neon
   const sql = getNeonSql();
   if (sql) {
     try {
       const res = await sql`
         DELETE FROM public.laporan
-        WHERE id = ${id} OR kode = ${id} OR kode_laporan = ${id}
+        WHERE id::text = ${id} OR kode = ${id} OR kode_laporan = ${id}
         RETURNING id
       `;
+      console.log(`[DELETE][NEON] Baris terhapus: ${res?.length ?? 0} untuk ID: "${id}"`);
       if (res && res.length > 0) {
         deleted = true;
         console.log(`[NEON DELETE SUCCESS] Laporan ID ${id} dihapus.`);
@@ -674,7 +820,7 @@ export async function deleteLaporan(id: string): Promise<boolean> {
   if (redis) {
     try {
       const list = await getLaporanList();
-      const filtered = list.filter((item) => item.id !== id && item.kode !== id);
+      const filtered = list.filter((item) => item.id !== id && item.kode !== id && item.kode_laporan !== id);
       if (filtered.length !== list.length) {
         await redis.set('sigap:laporan:list', JSON.stringify(filtered));
         deleted = true;
@@ -689,7 +835,16 @@ export async function deleteLaporan(id: string): Promise<boolean> {
   const supabase = getSupabase();
   if (supabase) {
     try {
-      await supabase.from('laporan').delete().or(`id.eq.${id},kode.eq.${id}`);
+      const { data, error } = await supabase
+        .from('laporan')
+        .delete()
+        .or(`id.eq.${id},kode.eq.${id}`)
+        .select('id');
+      console.log(`[DELETE][SUPABASE] Baris terhapus: ${data?.length ?? 0} untuk ID: "${id}"`);
+      if (!error && data && data.length > 0) {
+        deleted = true;
+        console.log(`[SUPABASE DELETE SUCCESS] Laporan ID ${id} dihapus dari Supabase.`);
+      }
     } catch (e) {
       console.warn('[SUPABASE DELETE WARNING]:', e);
     }
@@ -698,10 +853,17 @@ export async function deleteLaporan(id: string): Promise<boolean> {
   // 4. Update memory cache
   if (memoryCache) {
     const initialLen = memoryCache.length;
-    memoryCache = memoryCache.filter((item) => item.id !== id && item.kode !== id);
+    memoryCache = memoryCache.filter((item) => item.id !== id && item.kode !== id && item.kode_laporan !== id);
     if (memoryCache.length < initialLen) {
       deleted = true;
+      console.log(`[MEMORY DELETE SUCCESS] Laporan ID ${id} dihapus dari memory cache.`);
     }
+  }
+
+  if (deleted) {
+    saveLocalDataFile();
+  } else {
+    console.warn(`[DELETE] Laporan TIDAK DITEMUKAN untuk ID: "${id}"`);
   }
 
   return deleted;
@@ -734,4 +896,48 @@ export async function getStatistics(): Promise<StatisticsData> {
     penangananSelesai,
     wilayahTerbanyak: list.length > 0 ? topRegion : '-',
   };
+}
+/**
+ * Menghapus SELURUH laporan dari semua storage (untuk reset data produksi).
+ * Hanya boleh dipanggil dari endpoint admin yang terproteksi.
+ */
+export async function clearAllLaporan(): Promise<void> {
+  // 1. Hapus dari Postgres
+  const sql = getNeonSql();
+  if (sql) {
+    try {
+      await sql`DELETE FROM public.laporan`;
+      console.log('[CLEAR ALL][NEON] Semua laporan dihapus dari Postgres.');
+    } catch (err) {
+      console.error('[CLEAR ALL][NEON] Error:', err);
+    }
+  }
+
+  // 2. Hapus dari Redis
+  const redis = getUpstashRedis();
+  if (redis) {
+    try {
+      await redis.set('sigap:laporan:list', JSON.stringify([]));
+      console.log('[CLEAR ALL][REDIS] Key sigap:laporan:list dikosongkan.');
+    } catch (err) {
+      console.error('[CLEAR ALL][REDIS] Error:', err);
+    }
+  }
+
+  // 3. Hapus dari Supabase
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      await supabase.from('laporan').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      console.log('[CLEAR ALL][SUPABASE] Semua laporan dihapus dari Supabase.');
+    } catch (err) {
+      console.warn('[CLEAR ALL][SUPABASE] Error:', err);
+    }
+  }
+
+  // 4. Kosongkan memori
+  memoryCache = [];
+  dbInitialized = false; // reset agar ensureDatabaseReady tidak re-seed
+  saveLocalDataFile();
+  console.log('[CLEAR ALL] Memory cache & data/laporan.json dikosongkan.');
 }

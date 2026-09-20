@@ -26,6 +26,28 @@ function toRad(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
+/**
+ * Batas wilayah administratif Provinsi Sumatera Selatan:
+ * Latitude: -5.5 s/d -1.3
+ * Longitude: 102.0 s/d 106.5
+ */
+export const SOUTH_SUMATRA_BOUNDS = {
+  minLat: -5.5,
+  maxLat: -1.3,
+  minLng: 102.0,
+  maxLng: 106.5,
+};
+
+export function isLuarWilayahSumsel(lat: number, lng: number): boolean {
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return false;
+  return (
+    lat < SOUTH_SUMATRA_BOUNDS.minLat ||
+    lat > SOUTH_SUMATRA_BOUNDS.maxLat ||
+    lng < SOUTH_SUMATRA_BOUNDS.minLng ||
+    lng > SOUTH_SUMATRA_BOUNDS.maxLng
+  );
+}
+
 // --- Tingkat Keyakinan System ---
 
 export type TingkatKeyakinan = 'TINGGI' | 'TINJAUAN' | 'CURIGA';
