@@ -150,25 +150,7 @@ export default function LaporPage() {
   };
 
   const handleToggleManualPin = () => {
-    if (!showManualPin) {
-      setShowManualPin(true);
-      if (gpsLat === null || gpsLng === null) {
-        const defaultLat = -3.0037;
-        const defaultLng = 104.706;
-        setGpsLat(defaultLat);
-        setGpsLng(defaultLng);
-        setGpsAccuracy(null);
-        setSumberKoordinat('manual');
-        setGpsStatus('SUCCESS');
-        setGpsErrorMessage(null);
-        reverseGeocode(defaultLat, defaultLng).then((res) => setWilayah(res));
-      } else {
-        setSumberKoordinat('manual');
-        setGpsAccuracy(null);
-      }
-    } else {
-      setShowManualPin(false);
-    }
+    setShowManualPin((prev) => !prev);
   };
 
   // Calculate distance for preview display
@@ -197,14 +179,17 @@ export default function LaporPage() {
         foto_url: mockPhotoUrl,
         lat_gps: gpsLat,
         lng_gps: gpsLng,
+        akurasi_gps: gpsAccuracy,
         // EXIF values come ONLY from the photo, never from browser GPS
         lat_exif: exifInfo?.latitude ?? null,
         lng_exif: exifInfo?.longitude ?? null,
+        exif_lat: exifInfo?.latitude ?? null,
+        exif_lng: exifInfo?.longitude ?? null,
         date_time_original: exifInfo?.dateTimeOriginal ?? null,
+        waktu_jepret_exif: exifInfo?.dateTimeOriginal ?? null,
         wilayah: wilayah || `${gpsLat.toFixed(4)}, ${gpsLng.toFixed(4)}`,
         deskripsi,
         sumber_koordinat: sumberKoordinat,
-        // Server calculates: jarak_exif_gps_m, tingkat_keyakinan, flag_manual
       };
 
       const res = await fetch('/api/laporan', {
@@ -215,7 +200,8 @@ export default function LaporPage() {
 
       const data = await res.json();
 
-      if (res.ok && data.data) {
+      // Only display success if response is strictly OK, success is true, and valid report ID exists
+      if (res.ok && data.success && data.data && data.data.id) {
         setSubmittedReport(data.data);
         setToastMessage({
           msg: 'LAPORAN TERKIRIM BERHASIL',
@@ -223,10 +209,12 @@ export default function LaporPage() {
           type: 'success',
         });
       } else {
-        throw new Error(data.error || 'Gagal mengirim laporan');
+        setSubmittedReport(null);
+        throw new Error(data.error || 'Gagal menyimpan laporan ke server.');
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Submit report error:', err);
+      setSubmittedReport(null);
       setToastMessage({ msg: err.message || 'Gagal mengirim laporan', type: 'error' });
     } finally {
       setSubmitting(false);
@@ -291,7 +279,13 @@ export default function LaporPage() {
                   setFile(null);
                   setPhotoPreview(null);
                   setExifInfo(null);
+                  setGpsLat(null);
+                  setGpsLng(null);
+                  setGpsAccuracy(null);
+                  setWilayah('');
                   setDeskripsi('');
+                  setShowManualPin(false);
+                  requestBrowserLocation();
                 }}
               >
                 BUAT LAPORAN BARU
@@ -472,9 +466,13 @@ export default function LaporPage() {
                   {/* Reverse Geocoded Wilayah */}
                   <div className="font-body text-[14px] text-[#272E3B] font-medium pt-1 border-t border-[#000000]/15">
                     Wilayah:{' '}
-                    <span className="text-[#800020] font-mono font-bold">
-                      {wilayah || (gpsLat === null ? 'Menunggu penentuan koordinat...' : 'Mendeteksi alamat...')}
-                    </span>
+                    {gpsLat === null || gpsLng === null ? (
+                      <span className="text-[#8E95A3] font-mono">Belum tersedia</span>
+                    ) : wilayah ? (
+                      <span className="text-[#800020] font-mono font-bold">{wilayah}</span>
+                    ) : (
+                      <span className="text-[#8E95A3] font-mono italic">Mendeteksi alamat...</span>
+                    )}
                   </div>
 
                   {/* Location Action Buttons */}
@@ -514,7 +512,7 @@ export default function LaporPage() {
                     <div className="w-full h-[240px]">
                       <MapContainer
                         reports={[]}
-                        center={gpsLat !== null && gpsLng !== null ? [gpsLat, gpsLng] : [-3.0037, 104.706]}
+                        center={gpsLat !== null && gpsLng !== null ? [gpsLat, gpsLng] : [-3.0, 104.5]}
                         zoom={14}
                         draggablePin={true}
                         onPinDragEnd={handlePinDragEnd}

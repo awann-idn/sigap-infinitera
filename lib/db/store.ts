@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { normalizeWilayahCity } from '@/lib/wilayah';
 import type { TingkatKeyakinan } from '@/lib/geo';
@@ -8,16 +11,21 @@ export interface LaporanItem {
   foto_url: string;
   lat_gps: number;
   lng_gps: number;
-  lat_exif?: number;
-  lng_exif?: number;
-  jarak_exif_gps_m?: number;
+  akurasi_gps?: number;
+  lat_exif?: number | null;
+  lng_exif?: number | null;
+  exif_lat?: number | null;
+  exif_lng?: number | null;
+  jarak_exif_gps_m?: number | null;
+  selisih_jarak?: number | null;
   flag_manual: boolean;
   sumber_koordinat: 'gps' | 'manual';
   wilayah: string;
   deskripsi: string;
   skala: 'KECIL' | 'SEDANG' | 'BESAR';
   tingkat_keyakinan: TingkatKeyakinan;
-  date_time_original?: string;
+  date_time_original?: string | null;
+  waktu_jepret_exif?: string | null;
   status_verifikasi: 'belum-diverifikasi' | 'terverifikasi' | 'spam';
   status_penanganan: 'menunggu' | 'diproses' | 'selesai';
   petugas_id?: string;
@@ -38,20 +46,25 @@ const INITIAL_SEED: LaporanItem[] = [
     foto_url: '/images/karhutla_smoke_forest.png',
     lat_gps: -3.0037,
     lng_gps: 104.706,
+    akurasi_gps: 15,
     lat_exif: -3.0039,
     lng_exif: 104.7062,
+    exif_lat: -3.0039,
+    exif_lng: 104.7062,
     jarak_exif_gps_m: 30,
+    selisih_jarak: 30,
     flag_manual: false,
     sumber_koordinat: 'gps',
     wilayah: 'Kec. Gandus, Kota Palembang, Sumatera Selatan',
     deskripsi: 'Asap tebal membumbung tinggi dari lahan gambut kering di tepi Sungai Musi.',
     skala: 'BESAR',
     tingkat_keyakinan: 'TINGGI',
-    date_time_original: new Date(Date.now() - 2 * 3600 * 1000 - 5 * 60 * 1000).toISOString(),
+    date_time_original: '2026-09-17T07:00:00.000Z',
+    waktu_jepret_exif: '2026-09-17T07:00:00.000Z',
     status_verifikasi: 'terverifikasi',
     status_penanganan: 'diproses',
-    created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-09-17T07:03:23.264Z',
+    updated_at: '2026-09-17T07:03:23.264Z',
   },
   {
     id: 'c0000000-0000-0000-0000-000000000002',
@@ -59,20 +72,25 @@ const INITIAL_SEED: LaporanItem[] = [
     foto_url: '/images/firefighter_action.png',
     lat_gps: -2.9176,
     lng_gps: 104.7063,
+    akurasi_gps: 25,
     lat_exif: -2.948,
     lng_exif: 104.701,
+    exif_lat: -2.948,
+    exif_lng: 104.701,
     jarak_exif_gps_m: 3430,
+    selisih_jarak: 3430,
     flag_manual: true,
     sumber_koordinat: 'gps',
     wilayah: 'Kec. Sukarami, Kota Palembang, Sumatera Selatan',
     deskripsi: 'Api membakar semak dan rerumputan kering dekat permukiman warga.',
     skala: 'SEDANG',
     tingkat_keyakinan: 'TINJAUAN',
-    date_time_original: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
+    date_time_original: '2026-09-17T09:20:00.000Z',
+    waktu_jepret_exif: '2026-09-17T09:20:00.000Z',
     status_verifikasi: 'belum-diverifikasi',
     status_penanganan: 'menunggu',
-    created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-09-17T09:28:23.264Z',
+    updated_at: '2026-09-17T09:28:23.264Z',
   },
   {
     id: 'c0000000-0000-0000-0000-000000000003',
@@ -80,20 +98,65 @@ const INITIAL_SEED: LaporanItem[] = [
     foto_url: '/images/drone_monitoring.png',
     lat_gps: -3.2456,
     lng_gps: 104.657,
+    akurasi_gps: 40,
+    lat_exif: null,
+    lng_exif: null,
+    exif_lat: null,
+    exif_lng: null,
+    jarak_exif_gps_m: null,
+    selisih_jarak: null,
+    flag_manual: false,
     sumber_koordinat: 'gps',
     wilayah: 'Kec. Indralaya, Kab. Ogan Ilir, Sumatera Selatan',
     deskripsi: 'Titik api kecil bekas pembakaran lahan semak yang mulai meluas.',
     skala: 'KECIL',
     tingkat_keyakinan: 'TINJAUAN',
+    date_time_original: null,
+    waktu_jepret_exif: null,
     status_verifikasi: 'terverifikasi',
     status_penanganan: 'selesai',
-    flag_manual: false,
-    created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-09-16T11:03:23.264Z',
+    updated_at: '2026-09-16T11:03:23.264Z',
   },
 ];
 
-let memoryStore: LaporanItem[] = [...INITIAL_SEED];
+const DATA_FILE = path.join(process.cwd(), 'data', 'laporan.json');
+
+function ensureDataFile(): void {
+  const dir = path.dirname(DATA_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  if (!fs.existsSync(DATA_FILE)) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(INITIAL_SEED, null, 2), 'utf-8');
+  }
+}
+
+function readData(): LaporanItem[] {
+  try {
+    ensureDataFile();
+    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (err) {
+    console.error('[DATABASE ERROR] Gagal membaca data/laporan.json:', err);
+  }
+  return [...INITIAL_SEED];
+}
+
+function writeData(data: LaporanItem[]): void {
+  try {
+    ensureDataFile();
+    const serialized = JSON.stringify(data, null, 2);
+    // Write directly to file
+    fs.writeFileSync(DATA_FILE, serialized, 'utf-8');
+  } catch (err) {
+    console.error('[DATABASE ERROR] Gagal menyimpan data/laporan.json:', err);
+    throw new Error('Gagal menyimpan laporan ke penyimpanan persisten');
+  }
+}
 
 function getSupabase(): SupabaseClient | null {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -113,38 +176,10 @@ export interface LaporanQueryOptions {
 
 export async function getLaporanList(options: LaporanQueryOptions = {}): Promise<LaporanItem[]> {
   const { onlyVerified = false, onlyPublished = false } = options;
-  const supabase = getSupabase();
-
-  if (supabase) {
-    try {
-      const baseQuery = supabase
-        .from('laporan')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      let query = baseQuery;
-      if (onlyPublished) {
-        query = query
-          .eq('status_verifikasi', 'terverifikasi')
-          .in('status_penanganan', ['diproses', 'selesai']);
-      } else if (onlyVerified) {
-        query = query.eq('status_verifikasi', 'terverifikasi');
-      }
-
-      const { data, error } = await query;
-
-      if (!error && data) {
-        return data as LaporanItem[];
-      }
-
-      if (error) console.warn('Supabase fetch error:', error.message);
-    } catch (e) {
-      console.warn('Supabase fetch failed, falling back to local store:', e);
-    }
-  }
+  const allReports = readData();
 
   if (onlyPublished) {
-    return memoryStore.filter(
+    return allReports.filter(
       (item) =>
         item.status_verifikasi === 'terverifikasi' &&
         item.status_penanganan !== 'menunggu'
@@ -152,42 +187,99 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
   }
 
   return onlyVerified
-    ? memoryStore.filter((item) => item.status_verifikasi === 'terverifikasi')
-    : memoryStore;
+    ? allReports.filter((item) => item.status_verifikasi === 'terverifikasi')
+    : allReports;
 }
 
 export async function addLaporan(
   laporan: Omit<LaporanItem, 'id' | 'kode' | 'created_at' | 'updated_at'>
 ): Promise<LaporanItem> {
-  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const existing = await getLaporanList();
-  const countToday = existing.length + 1;
-  const kode = `SIGAP-${todayStr}-${String(countToday).padStart(3, '0')}`;
+  const allReports = readData();
 
-  const base = { ...laporan, kode };
+  // 1. Generate unique ID using UUID
+  const id = crypto.randomUUID();
 
-  const supabase = getSupabase();
-  if (supabase) {
-    try {
-      const { data, error } = await supabase.from('laporan').insert([base]).select();
-      if (!error && data && data.length > 0) {
-        memoryStore.unshift(data[0] as LaporanItem);
-        return data[0] as LaporanItem;
+  // 2. Calculate unique sequential kode: SIGAP-YYYYMMDD-NNN based on actual reports today
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const datePrefix = `SIGAP-${y}${m}${d}-`;
+
+  // Find max sequence number strictly for reports on this exact date
+  let maxSeq = 0;
+  for (const item of allReports) {
+    if (item.kode && item.kode.startsWith(datePrefix)) {
+      const suffix = item.kode.slice(datePrefix.length);
+      const num = parseInt(suffix, 10);
+      if (!isNaN(num) && num > maxSeq) {
+        maxSeq = num;
       }
-      if (error) console.warn('Supabase insert error:', error.message);
-    } catch (e) {
-      console.warn('Supabase insert failed, using fallback store:', e);
     }
   }
 
+  const nextSeq = maxSeq + 1;
+  const kode = `${datePrefix}${String(nextSeq).padStart(3, '0')}`;
+  const nowIso = now.toISOString();
+
+  // 3. Populate standard fields and aliases
+  const latExif = laporan.lat_exif ?? laporan.exif_lat ?? null;
+  const lngExif = laporan.lng_exif ?? laporan.exif_lng ?? null;
+  const jarakM = laporan.jarak_exif_gps_m ?? laporan.selisih_jarak ?? null;
+  const dateTime = laporan.date_time_original ?? laporan.waktu_jepret_exif ?? null;
+
   const newItem: LaporanItem = {
-    ...base,
-    id: `id-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    ...laporan,
+    id,
+    kode,
+    lat_exif: latExif,
+    lng_exif: lngExif,
+    exif_lat: latExif,
+    exif_lng: lngExif,
+    jarak_exif_gps_m: jarakM,
+    selisih_jarak: jarakM,
+    date_time_original: dateTime,
+    waktu_jepret_exif: dateTime,
+    created_at: nowIso,
+    updated_at: nowIso,
   };
 
-  memoryStore.unshift(newItem);
+  // 4. TRUE INSERT (unshift new report into persistent array)
+  allReports.unshift(newItem);
+  writeData(allReports);
+
+  // 5. Best-effort background sync to Supabase if configured (omit columns not in remote schema)
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const supabasePayload: Record<string, any> = {
+        id: newItem.id,
+        kode: newItem.kode,
+        foto_url: newItem.foto_url,
+        lat_gps: newItem.lat_gps,
+        lng_gps: newItem.lng_gps,
+        lat_exif: newItem.lat_exif,
+        lng_exif: newItem.lng_exif,
+        jarak_exif_gps_m: newItem.jarak_exif_gps_m,
+        flag_manual: newItem.flag_manual,
+        wilayah: newItem.wilayah,
+        deskripsi: newItem.deskripsi,
+        skala: newItem.skala,
+        status_verifikasi: newItem.status_verifikasi,
+        status_penanganan: newItem.status_penanganan,
+        created_at: newItem.created_at,
+        updated_at: newItem.updated_at,
+      };
+      supabase.from('laporan').insert([supabasePayload]).then(({ error }) => {
+        if (error) {
+          console.warn('[SUPABASE SYNC WARNING] Gagal sync ke remote Supabase:', error.message);
+        }
+      });
+    } catch (e) {
+      console.warn('[SUPABASE SYNC WARNING] Supabase sync exception:', e);
+    }
+  }
+
   return newItem;
 }
 
@@ -203,62 +295,60 @@ export async function updateLaporan(
   id: string,
   fields: LaporanUpdate
 ): Promise<LaporanItem | null> {
-  const updates = { ...fields, updated_at: new Date().toISOString() };
+  const allReports = readData();
+  const index = allReports.findIndex((item) => item.id === id || item.kode === id);
+  if (index === -1) return null;
 
+  const updatedItem: LaporanItem = {
+    ...allReports[index],
+    ...fields,
+    updated_at: new Date().toISOString(),
+  };
+
+  allReports[index] = updatedItem;
+  writeData(allReports);
+
+  // Best effort sync to Supabase
   const supabase = getSupabase();
   if (supabase) {
     try {
-      let query = supabase.from('laporan').update(updates).select();
+      const updates = { ...fields, updated_at: updatedItem.updated_at };
+      let query = supabase.from('laporan').update(updates);
       query = isUuid(id) ? query.eq('id', id) : query.eq('kode', id);
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        const index = memoryStore.findIndex((item) => item.id === id || item.kode === id);
-        if (index !== -1) memoryStore[index] = data[0] as LaporanItem;
-        return data[0] as LaporanItem;
-      }
-      if (error) console.warn('Supabase update error:', error.message);
+      query.then(({ error }) => {
+        if (error) console.warn('[SUPABASE SYNC WARNING] Gagal update remote:', error.message);
+      });
     } catch (e) {
-      console.warn('Supabase update failed, using fallback store:', e);
+      console.warn('[SUPABASE SYNC WARNING] Supabase update exception:', e);
     }
   }
 
-  const index = memoryStore.findIndex((item) => item.id === id || item.kode === id);
-  if (index === -1) return null;
-
-  memoryStore[index] = { ...memoryStore[index], ...updates } as LaporanItem;
-  return memoryStore[index];
+  return updatedItem;
 }
 
 export async function deleteLaporan(id: string): Promise<boolean> {
-  const supabase = getSupabase();
-  const index = memoryStore.findIndex((item) => item.id === id || item.kode === id);
+  const allReports = readData();
+  const index = allReports.findIndex((item) => item.id === id || item.kode === id);
+  if (index === -1) return false;
 
+  allReports.splice(index, 1);
+  writeData(allReports);
+
+  // Best effort sync to Supabase
+  const supabase = getSupabase();
   if (supabase) {
     try {
       let query = supabase.from('laporan').delete();
       query = isUuid(id) ? query.eq('id', id) : query.eq('kode', id);
-      const { error } = await query;
-
-      if (error) {
-        console.warn('Supabase delete error:', error.message);
-        return false;
-      }
-
-      if (index !== -1) memoryStore.splice(index, 1);
-      return true;
+      query.then(({ error }) => {
+        if (error) console.warn('[SUPABASE SYNC WARNING] Gagal delete remote:', error.message);
+      });
     } catch (e) {
-      console.warn('Supabase delete failed:', e);
-      return false;
+      console.warn('[SUPABASE SYNC WARNING] Supabase delete exception:', e);
     }
   }
 
-  if (index !== -1) {
-    memoryStore.splice(index, 1);
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 export async function getStatistics(): Promise<StatisticsData> {

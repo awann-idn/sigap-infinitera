@@ -366,6 +366,12 @@ export default function DashboardPage() {
                     <span className="text-[#8E95A3]">GPS / PIN:</span>
                     <span className="text-[#272E3B] text-right">{selectedReport.lat_gps}, {selectedReport.lng_gps}</span>
                   </div>
+                  {selectedReport.akurasi_gps != null && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-[#8E95A3]">AKURASI GPS:</span>
+                      <span className="text-[#272E3B] text-right font-mono font-bold">±{selectedReport.akurasi_gps} METER</span>
+                    </div>
+                  )}
                   <div className="flex justify-between gap-3">
                     <span className="text-[#8E95A3]">EXIF FOTO:</span>
                     <span className="text-[#272E3B] text-right">

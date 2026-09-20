@@ -5,11 +5,11 @@ import { LaporanItem } from '@/lib/db/store';
 import 'leaflet/dist/leaflet.css';
 
 export const SOUTH_SUMATRA_BOUNDS: [[number, number], [number, number]] = [
-  [-6.6, 101.0],
-  [-1.5, 107.0],
+  [-5.5, 102.0],
+  [-1.3, 106.5],
 ];
 
-const DEFAULT_CENTER: [number, number] = [-3.0, 104.5];
+export const DEFAULT_CENTER: [number, number] = [-3.1, 104.0];
 
 interface MapProps {
   reports: LaporanItem[];
@@ -21,22 +21,25 @@ interface MapProps {
   onSelectReport?: (report: LaporanItem) => void;
   draggablePin?: boolean;
   onPinDragEnd?: (lat: number, lng: number) => void;
+  roundCoords?: boolean;
 }
 
 export default function LeafletMapComponent({
   reports,
   center = DEFAULT_CENTER,
-  zoom = 7,
+  zoom = 8,
   interactive = true,
   scrollWheelZoom,
   onSelectReport,
   draggablePin = false,
   onPinDragEnd,
+  roundCoords = true,
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerLayerRef = useRef<any>(null);
   const pinMarkerRef = useRef<any>(null);
+  const boundaryLayerRef = useRef<any>(null);
   const leafletRef = useRef<any>(null);
   const onSelectRef = useRef(onSelectReport);
   const onPinDragEndRef = useRef(onPinDragEnd);
@@ -89,10 +92,33 @@ export default function LeafletMapComponent({
       leafletRef.current = L;
       mapRef.current = map;
       markerLayerRef.current = L.layerGroup().addTo(map);
+
+      // Load South Sumatra Province boundary GeoJSON outline
+      fetch('/data/sumsel.geojson')
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to load sumsel.geojson');
+          return res.json();
+        })
+        .then((geojson) => {
+          if (disposed || !mapRef.current) return;
+          const boundaryLayer = L.geoJSON(geojson, {
+            style: {
+              color: '#800020',
+              weight: 2,
+              fillColor: 'transparent',
+              fillOpacity: 0,
+            },
+            interactive: false,
+          }).addTo(mapRef.current);
+          boundaryLayerRef.current = boundaryLayer;
+        })
+        .catch((err) => {
+          console.warn('Could not load sumsel.geojson boundary:', err);
+        });
+
       setReady(true);
 
-      // Leaflet measures the container once; re-measure after layout/import
-      // so the tiles are not cut off, and on any container resize.
+      // Invalidate map size to prevent tile clipping
       window.setTimeout(() => map.invalidateSize(), 0);
       resizeObserver = new ResizeObserver(() => map.invalidateSize());
       resizeObserver.observe(containerRef.current);
@@ -102,6 +128,10 @@ export default function LeafletMapComponent({
       disposed = true;
       resizeObserver?.disconnect();
       if (mapRef.current) {
+        if (boundaryLayerRef.current) {
+          mapRef.current.removeLayer(boundaryLayerRef.current);
+          boundaryLayerRef.current = null;
+        }
         mapRef.current.remove();
         mapRef.current = null;
       }
@@ -112,10 +142,10 @@ export default function LeafletMapComponent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClient]);
 
-  // Keep the viewport in sync when the center/zoom props change.
+  // Keep the viewport in sync when the center/zoom props change (smooth flyTo).
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    mapRef.current.setView([centerLat, centerLng], zoom);
+    mapRef.current.flyTo([centerLat, centerLng], zoom, { duration: 0.8 });
   }, [ready, centerLat, centerLng, zoom]);
 
   // Render report markers.
@@ -127,6 +157,10 @@ export default function LeafletMapComponent({
     layer.clearLayers();
 
     reports.forEach((report) => {
+      // Round coordinates to 3 decimal places (±100m precision) for public map privacy
+      const lat = roundCoords ? Number(report.lat_gps.toFixed(3)) : report.lat_gps;
+      const lng = roundCoords ? Number(report.lng_gps.toFixed(3)) : report.lng_gps;
+
       const customIcon = L.divIcon({
         className: 'sigap-marker-wrapper',
         html: `<div class="sigap-custom-marker"><div class="sigap-custom-marker-dot"></div></div>`,
@@ -134,7 +168,7 @@ export default function LeafletMapComponent({
         iconAnchor: [12, 12],
       });
 
-      const marker = L.marker([report.lat_gps, report.lng_gps], { icon: customIcon }).addTo(layer);
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(layer);
 
       const popupContent = document.createElement('div');
       popupContent.className = 'flex flex-col gap-2 p-1 max-w-[260px] font-body text-[13px]';
@@ -144,17 +178,25 @@ export default function LeafletMapComponent({
         </div>
         <div class="font-mono text-[11px] text-[#800020] font-bold uppercase tracking-[0.06em]">${report.kode}</div>
         <div class="font-bold text-[14px] leading-tight text-[#272E3B]">${report.wilayah}</div>
-        <div class="font-mono text-[11px] text-[#525866]">SKALA: ${report.skala}</div>
-        <div class="font-mono text-[10px] text-[#8E95A3]">${new Date(report.created_at).toLocaleString('id-ID')}</div>
+        <div class="flex items-center justify-between font-mono text-[11px] text-[#525866]">
+          <span>SKALA: ${report.skala}</span>
+          <span class="text-[#800020] font-bold">${report.tingkat_keyakinan || 'TINJAUAN'}</span>
+        </div>
+        <div class="font-mono text-[10px] text-[#8E95A3] border-t border-[#D0D5DD] pt-1">
+          AREA: ±${lat}, ${lng}
+        </div>
+        <div class="font-mono text-[10px] text-[#8E95A3]">
+          ${new Date(report.created_at).toLocaleString('id-ID')}
+        </div>
       `;
 
       marker.bindPopup(popupContent);
       marker.on('click', () => onSelectRef.current?.(report));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, reportsSignature]);
+  }, [ready, reportsSignature, roundCoords]);
 
-  // Draggable fallback pin.
+  // Draggable / clickable pin.
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapRef.current;
@@ -178,7 +220,23 @@ export default function LeafletMapComponent({
         const { lat, lng } = e.target.getLatLng();
         onPinDragEndRef.current?.(lat, lng);
       });
+
+      const handleMapClick = (e: any) => {
+        const { lat, lng } = e.latlng;
+        pinMarker.setLatLng([lat, lng]);
+        onPinDragEndRef.current?.(lat, lng);
+      };
+      map.on('click', handleMapClick);
+
       pinMarkerRef.current = pinMarker;
+
+      return () => {
+        map.off('click', handleMapClick);
+        if (pinMarkerRef.current && mapRef.current) {
+          mapRef.current.removeLayer(pinMarkerRef.current);
+          pinMarkerRef.current = null;
+        }
+      };
     }
 
     return () => {
@@ -192,13 +250,13 @@ export default function LeafletMapComponent({
 
   if (!isClient) {
     return (
-      <div className="w-full h-full min-h-[300px] bg-[#3D0010] flex items-center justify-center border border-[#5C0016]">
-        <div className="font-mono text-[11px] text-[#E8C9CF] uppercase tracking-[0.08em] animate-pulse">
-          MEMUAT PETA LEAFLET...
+      <div className="w-full h-full min-h-[300px] bg-[#FFF9F2] flex items-center justify-center border border-[#800020]">
+        <div className="font-mono text-[11px] text-[#800020] uppercase tracking-[0.08em] animate-pulse">
+          MEMUAT PETA LEAFLET SUMATERA SELATAN...
         </div>
       </div>
     );
   }
 
-  return <div ref={containerRef} className="w-full h-full min-h-[300px] border border-[#5C0016]" />;
+  return <div ref={containerRef} className="w-full h-full min-h-[300px] border-0" />;
 }
