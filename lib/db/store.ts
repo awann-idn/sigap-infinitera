@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { Redis } from '@upstash/redis';
-import { canonicalCityLabel, matchWilayahSumsel } from '@/lib/wilayah';
+import { canonicalCityLabel } from '@/lib/wilayah';
 import { type TingkatKeyakinan, isLuarWilayahSumsel, calculateTingkatKeyakinan } from '@/lib/geo';
 
 export type StatusVerifikasi =
@@ -52,8 +52,8 @@ export interface LaporanItem {
 
 export interface StatisticsData {
   totalTerverifikasi: number;
-  sedangDitangani: number;
   wilayahTerdampak: number;
+  wilayahTerbanyak: string;
 }
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'laporan.json');
@@ -931,19 +931,27 @@ export async function deleteLaporan(id: string): Promise<boolean> {
 function computeStats(
   rows: { wilayah?: string | null; status_penanganan?: string | null }[]
 ): StatisticsData {
-  const sedangDitangani = rows.filter((r) => r.status_penanganan === 'diproses').length;
-
-  const regionSet = new Set<string>();
+  const regionCounts: Record<string, number> = {};
   rows.forEach((r) => {
-    const wilayah = r.wilayah || '';
-    const id = matchWilayahSumsel(wilayah);
-    regionSet.add(id || canonicalCityLabel(wilayah));
+    const reg = canonicalCityLabel(r.wilayah || '');
+    regionCounts[reg] = (regionCounts[reg] || 0) + 1;
+  });
+
+  let topRegion = '-';
+  let maxCount = 0;
+  let wilayahTerdampak = 0;
+  Object.entries(regionCounts).forEach(([reg, count]) => {
+    if (reg && count > 0) wilayahTerdampak++;
+    if (count > maxCount) {
+      maxCount = count;
+      topRegion = reg;
+    }
   });
 
   return {
     totalTerverifikasi: rows.length,
-    sedangDitangani,
-    wilayahTerdampak: regionSet.size,
+    wilayahTerdampak,
+    wilayahTerbanyak: rows.length > 0 ? topRegion : '-',
   };
 }
 
@@ -955,7 +963,7 @@ export async function getStatistics(): Promise<StatisticsData> {
   if (sql) {
     try {
       const rows = await sql`
-        SELECT wilayah, status_penanganan
+        SELECT wilayah
         FROM public.laporan
         WHERE status_verifikasi = 'terverifikasi'
       `;
@@ -970,7 +978,7 @@ export async function getStatistics(): Promise<StatisticsData> {
     try {
       const { data, error } = await supabase
         .from('laporan')
-        .select('wilayah,status_penanganan')
+        .select('wilayah')
         .eq('status_verifikasi', 'terverifikasi');
       if (!error && data) return computeStats(data as any[]);
     } catch (err) {
