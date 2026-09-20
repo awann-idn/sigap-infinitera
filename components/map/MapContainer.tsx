@@ -51,7 +51,7 @@ export default function LeafletMapComponent({
   const centerLat = center[0];
   const centerLng = center[1];
   const reportsSignature = reports
-    .map((r) => `${r.id}|${r.kode}|${r.lat_gps}|${r.lng_gps}|${r.skala}`)
+    .map((r) => `${r.id}|${r.kode}|${r.lat_gps}|${r.lng_gps}|${r.skala}|${r.status_penanganan}`)
     .join('~');
 
   useEffect(() => {
@@ -163,9 +163,17 @@ export default function LeafletMapComponent({
       const lat = roundCoords ? Number(report.lat_gps.toFixed(3)) : report.lat_gps;
       const lng = roundCoords ? Number(report.lng_gps.toFixed(3)) : report.lng_gps;
 
+      const statusPenanganan = report.status_penanganan || 'menunggu';
+      const statusColor =
+        statusPenanganan === 'selesai'
+          ? '#15803D'
+          : statusPenanganan === 'diproses'
+          ? '#800020'
+          : '#A16207';
+
       const customIcon = L.divIcon({
         className: 'sigap-marker-wrapper',
-        html: `<div class="sigap-custom-marker"><div class="sigap-custom-marker-dot"></div></div>`,
+        html: `<div class="sigap-custom-marker" style="background:${statusColor};border-color:#FFFFFF;"><div class="sigap-custom-marker-dot"></div></div>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
@@ -180,6 +188,9 @@ export default function LeafletMapComponent({
         </div>
         <div class="font-mono text-[11px] text-[#800020] font-bold uppercase tracking-[0.06em]">${report.kode}</div>
         <div class="font-bold text-[14px] leading-tight text-[#272E3B]">${report.wilayah}</div>
+        <div class="font-mono text-[10px] font-bold" style="color:${statusColor}">
+          STATUS: ${statusPenanganan.toUpperCase()}
+        </div>
         <div class="flex items-center justify-between font-mono text-[11px] text-[#525866]">
           <span>SKALA: ${report.skala}</span>
           <span class="text-[#800020] font-bold">${report.tingkat_keyakinan || 'TINJAUAN'}</span>

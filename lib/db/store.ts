@@ -87,7 +87,7 @@ let dbInitialized = false;
 // Short-lived cache so repeated reads (map, dashboard, stats) don't hit the DB
 // on every request. Invalidated on every write.
 let listCache: { key: string; data: LaporanItem[]; expiresAt: number } | null = null;
-const LIST_CACHE_TTL_MS = 10_000;
+const LIST_CACHE_TTL_MS = 5_000;
 
 function invalidateListCache(): void {
   listCache = null;
@@ -449,7 +449,12 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
     // Publik hanya menampilkan laporan yang sudah terverifikasi dan bukan luar wilayah Sumsel
     // Koordinat dibulatkan ke presisi ±100 meter (3 desimal) untuk melindungi privasi properti
     result = reports
-      .filter((item) => item.status_verifikasi === 'terverifikasi' && !item.luar_wilayah)
+      .filter(
+        (item) =>
+          item.status_verifikasi === 'terverifikasi' &&
+          !item.luar_wilayah &&
+          item.status_penanganan !== 'menunggu'
+      )
       .map((item) => ({
         ...item,
         lat_gps: Math.round(item.lat_gps * 1000) / 1000,

@@ -29,22 +29,37 @@ export default function PetaPage() {
   const [mapZoom, setMapZoom] = useState<number>(8);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
 
-  const fetchReports = async () => {
-    setLoading(true);
+  const fetchReports = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      // Public endpoint: only verified reports are returned.
-      const res = await fetch('/api/laporan');
+      // Public endpoint: only verified reports (sedang/sudah ditangani).
+      const res = await fetch('/api/laporan', { cache: 'no-store' });
       const json = await res.json();
       if (json.data) setReports(json.data);
     } catch (err) {
       console.error('Fetch reports failed:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchReports();
+
+    // Auto-refresh tiap 20 detik agar perubahan status dari petugas ikut tampil.
+    const interval = setInterval(() => fetchReports(true), 20000);
+
+    // Refetch ketika pengguna kembali ke tab ini.
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchReports(true);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Privacy protection: round marker coordinates to 3 decimals (±100m precision)
@@ -132,7 +147,7 @@ export default function PetaPage() {
             )}
 
             <button
-              onClick={fetchReports}
+              onClick={() => fetchReports()}
               disabled={loading}
               className="flex items-center gap-1.5 text-[#800020] hover:underline uppercase font-bold disabled:opacity-50 text-[11px] sm:text-[12px]"
             >
@@ -156,6 +171,16 @@ export default function PetaPage() {
             {/* Privacy indicator overlay on map corner */}
             <div className="absolute bottom-2 left-2 z-[900] bg-[#FFFFFF]/90 backdrop-blur border border-[#800020] px-2 py-0.5 sm:px-2.5 sm:py-1 font-mono text-[9px] sm:text-[10px] text-[#525866] uppercase">
               Koordinat publik disamarkan ±100m (Privasi Warga)
+            </div>
+
+            {/* Status legend overlay */}
+            <div className="absolute bottom-2 right-2 z-[900] bg-[#FFFFFF]/90 backdrop-blur border border-[#800020] px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] text-[#272E3B] uppercase flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 inline-block" style={{ background: '#800020' }} /> Diproses
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 inline-block" style={{ background: '#15803D' }} /> Selesai
+              </span>
             </div>
           </div>
 

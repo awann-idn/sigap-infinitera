@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
     const cacheControl = includeUnpublished
       ? 'no-store, no-cache, must-revalidate'
-      : 'public, s-maxage=20, stale-while-revalidate=120';
+      : 'public, s-maxage=5, stale-while-revalidate=30';
 
     return NextResponse.json(
       { success: true, data: list },
