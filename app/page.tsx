@@ -300,11 +300,6 @@ export default async function LandingPage() {
                   <Phone className="w-4 h-4" /> PANGGIL 112
                 </Button>
               </a>
-              <Link href="/lapor" className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full">
-                  FORM LAPOR SIGAP
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
