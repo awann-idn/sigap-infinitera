@@ -28,12 +28,15 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SIGAP — Sistem Informasi Geolokasi Aduan Pelaporan Kebakaran',
+  title: 'SIGAP Kebakaran',
   description: 'Sistem pelaporan cepat karhutla berbasis foto & GPS presisi otomatis. Respon cepat pemadam kebakaran & pemantauan peta sebaran real-time.',
   keywords: ['SIGAP', 'Pelaporan Kebakaran', 'Karhutla', 'Bencana', 'Geolokasi', 'BPBD', 'Pemadam Kebakaran'],
   authors: [{ name: 'Infinitera 2.0 Team' }],
+  icons: {
+    icon: '/icon.svg',
+  },
   openGraph: {
-    title: 'SIGAP — Sistem Pelaporan Kebakaran Karhutla',
+    title: 'SIGAP Kebakaran',
     description: 'Laporkan kejadian kebakaran lahan & hutan secara presisi via GPS browser dan foto metadata EXIF.',
     type: 'website',
   },

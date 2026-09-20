@@ -12,7 +12,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: 'BERANDA' },
     { href: '/peta', label: 'PETA SEBARAN' },
-    { href: '/edukasi', label: 'EDUKASI' },
+    { href: '/edukasi', label: 'BERITA & EDUKASI' },
   ];
 
   return (

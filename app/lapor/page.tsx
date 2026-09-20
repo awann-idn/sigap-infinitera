@@ -80,6 +80,7 @@ export default function LaporPage() {
         setGpsStatus('SUCCESS');
         setGpsErrorMessage(null);
         setSumberKoordinat('gps');
+        setShowManualPin(false);
 
         const regionName = await reverseGeocode(lat, lng);
         setWilayah(regionName);
@@ -375,7 +376,7 @@ export default function LaporPage() {
                       />
                     </label>
                     <span className="font-mono text-[11px] text-[#272E3B] font-bold">
-                      KAMERA BELAKANG (JPG, PNG, WEBP — MAKS. 5 MB)
+                      KAMERA BELAKANG
                     </span>
                   </div>
                 )}
@@ -536,14 +537,16 @@ export default function LaporPage() {
                       <span>{gpsStatus === 'FETCHING' ? 'MENGAMBIL LOKASI...' : 'PERBARUI LOKASI GPS'}</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={handleToggleManualPin}
-                      className="h-[40px] px-3 sm:px-4 bg-transparent border-2 border-[#000000] text-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center justify-center gap-2 transition-colors w-full sm:w-fit cursor-pointer"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-[#800020]" />
-                      <span>{showManualPin ? 'TUTUP PETA MANUAL' : 'TENTUKAN PIN MANUAL DI PETA'}</span>
-                    </button>
+                    {(gpsStatus === 'ERROR' || showManualPin) && (
+                      <button
+                        type="button"
+                        onClick={handleToggleManualPin}
+                        className="h-[40px] px-3 sm:px-4 bg-transparent border-2 border-[#000000] text-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF] font-mono text-[11px] uppercase font-bold inline-flex items-center justify-center gap-2 transition-colors w-full sm:w-fit cursor-pointer"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-[#800020]" />
+                        <span>{showManualPin ? 'TUTUP PETA MANUAL' : 'TENTUKAN PIN MANUAL DI PETA'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 

@@ -56,7 +56,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/edukasi" className="hover:underline text-[#000000]">
-                  EDUKASI & FAQ
+                  BERITA & EDUKASI
                 </Link>
               </li>
               <li>
