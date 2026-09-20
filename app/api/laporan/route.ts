@@ -7,8 +7,8 @@ import {
   calculateTingkatKeyakinan,
 } from '@/lib/geo';
 
-// Selalu fetch fresh dari database — jangan pernah cache oleh Next.js atau CDN
-export const dynamic = 'force-dynamic';
+// Route tetap dinamis (butuh query & sesi), tapi respons publik di-cache
+// singkat di CDN supaya tidak membebani database tiap request.
 export const revalidate = 0;
 
 export async function GET(request: Request) {
@@ -31,9 +31,14 @@ export async function GET(request: Request) {
     const list = includeUnpublished
       ? await getLaporanList()
       : await getLaporanList({ onlyPublished: true });
+
+    const cacheControl = includeUnpublished
+      ? 'no-store, no-cache, must-revalidate'
+      : 'public, s-maxage=20, stale-while-revalidate=120';
+
     return NextResponse.json(
       { success: true, data: list },
-      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+      { headers: { 'Cache-Control': cacheControl } }
     );
   } catch (error: any) {
     return NextResponse.json(

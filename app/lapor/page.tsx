@@ -261,7 +261,7 @@ export default function LaporPage() {
     // Baru dijalankan SETELAH EXIF tersimpan.
     console.log('[EXIF] Mulai kompresi canvas...');
     try {
-      const compressedBase64 = await compressImageClient(selectedFile, 1280, 0.8);
+      const compressedBase64 = await compressImageClient(selectedFile, 1280, 0.7);
       console.log('[EXIF] Kompresi selesai. Ukuran base64:', Math.round(compressedBase64.length / 1024), 'KB');
       setPhotoPreview(compressedBase64);
     } catch (compErr) {
@@ -365,8 +365,12 @@ export default function LaporPage() {
     if (!video) return;
 
     const canvas = document.createElement('canvas');
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
+    const MAX_DIM = 1280;
+    const rawWidth = video.videoWidth || 1280;
+    const rawHeight = video.videoHeight || 720;
+    const scale = Math.min(1, MAX_DIM / Math.max(rawWidth, rawHeight));
+    const width = Math.round(rawWidth * scale);
+    const height = Math.round(rawHeight * scale);
     canvas.width = width;
     canvas.height = height;
 
@@ -374,7 +378,7 @@ export default function LaporPage() {
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0, width, height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
     // Buat objek File untuk form submission
     const byteString = atob(dataUrl.split(',')[1]);

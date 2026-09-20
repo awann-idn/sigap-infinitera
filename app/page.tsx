@@ -6,7 +6,7 @@ import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { getStatistics } from '@/lib/db/store';
 
-export const revalidate = 0;
+export const revalidate = 30;
 
 export default async function LandingPage() {
   const stats = await getStatistics();

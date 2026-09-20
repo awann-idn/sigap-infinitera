@@ -84,6 +84,26 @@ function sanitizeForLog(record: Record<string, any>): Record<string, any> {
 let memoryCache: LaporanItem[] | null = null;
 let dbInitialized = false;
 
+// Short-lived cache so repeated reads (map, dashboard, stats) don't hit the DB
+// on every request. Invalidated on every write.
+let listCache: { key: string; data: LaporanItem[]; expiresAt: number } | null = null;
+const LIST_CACHE_TTL_MS = 10_000;
+
+function invalidateListCache(): void {
+  listCache = null;
+}
+
+function maxSequenceFromCodes(codes: string[], datePrefix: string): number {
+  let maxSeq = 0;
+  for (const k of codes) {
+    if (k && k.startsWith(datePrefix)) {
+      const num = parseInt(k.slice(datePrefix.length), 10);
+      if (!isNaN(num) && num > maxSeq) maxSeq = num;
+    }
+  }
+  return maxSeq;
+}
+
 /**
  * Membaca seed data awal dari data/laporan.json secara read-only.
  * Memfilter keluar entri yang memiliki sumber_koordinat: 'manual'.
@@ -335,6 +355,12 @@ export interface LaporanQueryOptions {
  */
 export async function getLaporanList(options: LaporanQueryOptions = {}): Promise<LaporanItem[]> {
   const { onlyVerified = false, onlyPublished = false } = options;
+  const cacheKey = `${onlyVerified ? 'v' : '0'}${onlyPublished ? 'p' : '0'}`;
+
+  if (listCache && listCache.key === cacheKey && listCache.expiresAt > Date.now()) {
+    return listCache.data;
+  }
+
   await ensureDatabaseReady();
 
   let reports: LaporanItem[] = [];
@@ -417,10 +443,12 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
     memoryCache = [...reports];
   }
 
+  let result: LaporanItem[];
+
   if (onlyPublished) {
     // Publik hanya menampilkan laporan yang sudah terverifikasi dan bukan luar wilayah Sumsel
     // Koordinat dibulatkan ke presisi ±100 meter (3 desimal) untuk melindungi privasi properti
-    return reports
+    result = reports
       .filter((item) => item.status_verifikasi === 'terverifikasi' && !item.luar_wilayah)
       .map((item) => ({
         ...item,
@@ -433,11 +461,51 @@ export async function getLaporanList(options: LaporanQueryOptions = {}): Promise
         exif_lat: undefined,
         exif_lng: undefined,
       }));
+  } else if (onlyVerified) {
+    result = reports.filter((item) => item.status_verifikasi === 'terverifikasi');
+  } else {
+    result = reports;
   }
 
-  return onlyVerified
-    ? reports.filter((item) => item.status_verifikasi === 'terverifikasi')
-    : reports;
+  listCache = { key: cacheKey, data: result, expiresAt: Date.now() + LIST_CACHE_TTL_MS };
+  return result;
+}
+
+/**
+ * Mengambil kode laporan pada tanggal tertentu saja (tanpa kolom foto),
+ * untuk menghitung nomor urut tanpa menarik seluruh data.
+ */
+async function getKodePrefixCodes(datePrefix: string): Promise<string[]> {
+  const sql = getNeonSql();
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT kode_laporan FROM public.laporan
+        WHERE kode_laporan LIKE ${datePrefix + '%'}
+      `;
+      return (rows as any[]).map((r) => String(r.kode_laporan || ''));
+    } catch (err) {
+      console.warn('[KODE][NEON] fallback:', err);
+    }
+  }
+
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .select('kode')
+        .like('kode', `${datePrefix}%`);
+      if (!error && data) {
+        return (data as any[]).map((r) => String(r.kode || ''));
+      }
+    } catch (err) {
+      console.warn('[KODE][SUPABASE] fallback:', err);
+    }
+  }
+
+  const list = await getLaporanList();
+  return list.map((i) => i.kode_laporan || i.kode).filter(Boolean) as string[];
 }
 
 /**
@@ -458,19 +526,8 @@ export async function addLaporan(
   const d = String(now.getDate()).padStart(2, '0');
   const datePrefix = `SIGAP-${y}${m}${d}-`;
 
-  const existing = await getLaporanList();
-  let maxSeq = 0;
-  for (const item of existing) {
-    const k = item.kode_laporan || item.kode;
-    if (k && k.startsWith(datePrefix)) {
-      const suffix = k.slice(datePrefix.length);
-      const num = parseInt(suffix, 10);
-      if (!isNaN(num) && num > maxSeq) {
-        maxSeq = num;
-      }
-    }
-  }
-
+  const existingCodes = await getKodePrefixCodes(datePrefix);
+  const maxSeq = maxSequenceFromCodes(existingCodes, datePrefix);
   const nextSeq = maxSeq + 1;
   const kode = `${datePrefix}${String(nextSeq).padStart(3, '0')}`;
   const nowIso = now.toISOString();
@@ -611,10 +668,8 @@ export async function addLaporan(
   }
 
   // 4. Update memory cache (read-only safe fallback)
-  if (!memoryCache) {
-    memoryCache = existing;
-  }
-  memoryCache = [newItem, ...memoryCache.filter((item) => item.id !== newItem.id)];
+  memoryCache = [newItem, ...(memoryCache || []).filter((item) => item.id !== newItem.id)];
+  invalidateListCache();
 
   // Coba tulis ke disk hanya jika filesystem writable (lingkungan dev lokal)
   saveLocalDataFile();
@@ -623,6 +678,7 @@ export async function addLaporan(
 }
 
 function saveLocalDataFile(): void {
+  invalidateListCache();
   try {
     const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
     if (!isVercel && memoryCache) {
@@ -872,13 +928,14 @@ export async function deleteLaporan(id: string): Promise<boolean> {
 /**
  * Menghitung ringkasan statistik terverifikasi & wilayah teratas.
  */
-export async function getStatistics(): Promise<StatisticsData> {
-  const list = await getLaporanList({ onlyVerified: true });
-  const penangananSelesai = list.filter((item) => item.status_penanganan === 'selesai').length;
+function computeStats(
+  rows: { wilayah?: string | null; status_penanganan?: string | null }[]
+): StatisticsData {
+  const penangananSelesai = rows.filter((r) => r.status_penanganan === 'selesai').length;
 
   const regionCounts: Record<string, number> = {};
-  list.forEach((item) => {
-    const reg = normalizeWilayahCity(item.wilayah || '');
+  rows.forEach((r) => {
+    const reg = normalizeWilayahCity(r.wilayah || '');
     regionCounts[reg] = (regionCounts[reg] || 0) + 1;
   });
 
@@ -892,10 +949,45 @@ export async function getStatistics(): Promise<StatisticsData> {
   });
 
   return {
-    totalTerverifikasi: list.length,
+    totalTerverifikasi: rows.length,
     penangananSelesai,
-    wilayahTerbanyak: list.length > 0 ? topRegion : '-',
+    wilayahTerbanyak: rows.length > 0 ? topRegion : '-',
   };
+}
+
+export async function getStatistics(): Promise<StatisticsData> {
+  await ensureDatabaseReady();
+
+  // Lightweight query: only the two columns needed, tanpa kolom foto/base64.
+  const sql = getNeonSql();
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT wilayah, status_penanganan
+        FROM public.laporan
+        WHERE status_verifikasi = 'terverifikasi'
+      `;
+      return computeStats(rows as any[]);
+    } catch (err) {
+      console.warn('[STATS][NEON] fallback ke daftar lengkap:', err);
+    }
+  }
+
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .select('wilayah,status_penanganan')
+        .eq('status_verifikasi', 'terverifikasi');
+      if (!error && data) return computeStats(data as any[]);
+    } catch (err) {
+      console.warn('[STATS][SUPABASE] fallback ke daftar lengkap:', err);
+    }
+  }
+
+  const list = await getLaporanList({ onlyVerified: true });
+  return computeStats(list);
 }
 /**
  * Menghapus SELURUH laporan dari semua storage (untuk reset data produksi).
