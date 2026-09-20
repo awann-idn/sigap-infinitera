@@ -88,6 +88,20 @@ export const WILAYAH_SUMSEL_LIST: WilayahItem[] = [
   { id: 'pali', name: 'Penukal Abab Lematang Ilir', type: 'Kabupaten', center: [-3.2167, 103.8500] },
 ];
 
+/**
+ * Nama kota/kabupaten baku untuk agregasi statistik & peta.
+ * Menyatukan berbagai penulisan dan alias:
+ * "Timbangan, Ogan Ilir" / "Kabupaten Ogan Ilir" -> "Ogan Ilir, Sumatera Selatan"
+ */
+export function canonicalCityLabel(wilayah: string): string {
+  const id = matchWilayahSumsel(wilayah);
+  if (id) {
+    const item = WILAYAH_SUMSEL_LIST.find((w) => w.id === id);
+    if (item) return `${item.name}, Sumatera Selatan`;
+  }
+  return normalizeWilayahCity(wilayah);
+}
+
 export function matchWilayahSumsel(wilayahText: string): string | null {
   if (!wilayahText) return null;
   const lower = wilayahText.toLowerCase();

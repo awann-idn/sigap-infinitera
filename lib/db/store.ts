@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { Redis } from '@upstash/redis';
-import { normalizeWilayahCity } from '@/lib/wilayah';
+import { canonicalCityLabel } from '@/lib/wilayah';
 import { type TingkatKeyakinan, isLuarWilayahSumsel, calculateTingkatKeyakinan } from '@/lib/geo';
 
 export type StatusVerifikasi =
@@ -935,7 +935,7 @@ function computeStats(
 
   const regionCounts: Record<string, number> = {};
   rows.forEach((r) => {
-    const reg = normalizeWilayahCity(r.wilayah || '');
+    const reg = canonicalCityLabel(r.wilayah || '');
     regionCounts[reg] = (regionCounts[reg] || 0) + 1;
   });
 
